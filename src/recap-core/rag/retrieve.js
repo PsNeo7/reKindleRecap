@@ -28,7 +28,7 @@ export async function retrieveSafeContext(provider, apiKey, queryText, maxAllowe
     const rawResults = await globalVectorStore.search(
         queryVector,
         candidateLimit,
-        (doc) => doc.metadata.chapterIndex <= maxAllowedChapterIndex
+        (doc) => (doc.metadata?.chapterIndex || 1) <= maxAllowedChapterIndex
     );
 
     // 4. Apply a recency boost: chunks near the current chapter get a multiplier.
@@ -36,11 +36,14 @@ export async function retrieveSafeContext(provider, apiKey, queryText, maxAllowe
     //    This means a chunk at the very current chapter gets a 1.0x multiplier,
     //    while a chunk at chapter 1 of a 100-chapter book only gets ~0.505x.
     const boosted = rawResults.map(doc => {
+        const chapterIdx = doc.metadata?.chapterIndex || 1; // Fallback to 1 if undefined
         const relativePosition = maxAllowedChapterIndex > 0
-            ? doc.metadata.chapterIndex / maxAllowedChapterIndex
+            ? chapterIdx / maxAllowedChapterIndex
             : 1;
         const recencyMultiplier = 0.5 + 0.5 * relativePosition;
-        return { ...doc, score: doc.score * recencyMultiplier };
+        // Ensure score never becomes NaN
+        const finalScore = (doc.score || 0) * recencyMultiplier;
+        return { ...doc, score: isNaN(finalScore) ? 0 : finalScore };
     });
 
     // 5. Re-sort by boosted score and return the top results

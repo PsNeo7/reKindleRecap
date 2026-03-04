@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { History, Trash2, Clock } from 'lucide-react';
 import { listRecapOutputs, deleteVectorCache } from '../../core/VectorCache.js';
-import { CURRENT_BOOK_METADATA } from '../../core/MockReaderAdapter.js';
 
-export default function RecapHistory({ fileType, onLoadCachedRecap }) {
+
+export default function RecapHistory({ fileType, bookKey, onLoadCachedRecap }) {
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -13,14 +13,14 @@ export default function RecapHistory({ fileType, onLoadCachedRecap }) {
 
     const loadHistory = async () => {
         setIsLoading(true);
-        const outputs = await listRecapOutputs(CURRENT_BOOK_METADATA.title);
+        const outputs = await listRecapOutputs(bookKey);
         setHistory(outputs);
         setIsLoading(false);
     };
 
     const handleDelete = async (chapter, e) => {
         e.stopPropagation();
-        const key = `${CURRENT_BOOK_METADATA.title}::ch${chapter}`;
+        const key = `${bookKey}::ch${chapter}`;
         await deleteVectorCache(key); // Assuming delete works for both given enough time or we add a specific delete for recaps
         // Note: As VectorCache was built, deleteVectorCache uses the vector store name. 
         // We should just refresh the list. To be fully correct we need a deleteRecapOutput function, 

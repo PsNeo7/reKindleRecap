@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Send } from 'lucide-react';
 import { useApiConfig } from '../../core/useApiConfig.js';
-import { CURRENT_BOOK_METADATA } from '../../core/MockReaderAdapter.js';
+
 import { retrieveSafeContext } from '../../recap-core/rag/retrieve.js';
 import { generateQuestionPrompt } from '../../recap-core/prompt-question.js';
 import { streamRecap } from '../../recap-core/ProviderRouter.js';
@@ -11,7 +11,7 @@ import { streamRecap } from '../../recap-core/ProviderRouter.js';
  * RAG context is retrieved, and the AI answers in a chat-style UI.
  * All answers are spoiler-safe (Amnesia Protocol).
  */
-export default function QuestionPanel({ currentChapter, fileType = 'epub' }) {
+export default function QuestionPanel({ currentChapter, fileType = 'epub', bookKey }) {
     const { provider, activeKey } = useApiConfig();
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
@@ -48,8 +48,8 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub' }) {
             // Build system prompt with the question embedded
             const progressText = fileType === 'pdf' ? `Page ${currentChapter}` : `Chapter ${currentChapter}`;
             const basePrompt = generateQuestionPrompt(
-                CURRENT_BOOK_METADATA.title,
-                CURRENT_BOOK_METADATA.author,
+                bookKey || "Unknown Book",
+                "",
                 progressText
             );
             const fullPrompt = `${basePrompt}\n\nThe reader asks: "${question}"`;

@@ -88,6 +88,9 @@ export default function EpubViewer({ file, initialLocation, onLocationChange }) 
                 tocChanged={(toc) => {
                     tocRef.current = toc;
                 }}
+                epubInitOptions={{
+                    sandbox: "allow-scripts allow-same-origin allow-popups"
+                }}
             />
         </div>
     );

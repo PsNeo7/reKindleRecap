@@ -19,9 +19,28 @@ export async function parseEpubFile(file) {
                 await book.ready;
 
                 const meta = await book.loaded.metadata;
+                let coverBase64 = null;
+                try {
+                    const coverUrl = await book.coverUrl();
+                    if (coverUrl) {
+                        // coverUrl is often a browser memory 'blob:http://...' string 
+                        // when epub.js processes an ArrayBuffer.
+                        const res = await fetch(coverUrl);
+                        const blob = await res.blob();
+                        const reader2 = new FileReader();
+                        coverBase64 = await new Promise((res) => {
+                            reader2.onloadend = () => res(reader2.result);
+                            reader2.readAsDataURL(blob);
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Failed to extract EPUB cover', e);
+                }
+
                 const metadata = {
                     title: meta.title || "Unknown Title",
-                    author: meta.creator || "Unknown Author"
+                    author: meta.creator || "Unknown Author",
+                    coverBase64
                 };
 
                 const chunks = [];

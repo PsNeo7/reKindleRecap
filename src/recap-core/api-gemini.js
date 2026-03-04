@@ -4,33 +4,7 @@ import { fetchWithRetry } from './fetchWithRetry.js';
  * Fetches a streaming recap from Google's Gemini.
  */
 export async function fetchGeminiStream(apiKey, systemPrompt, contextChunks = [], onChunk, onError) {
-    // 0. Auto-discover the best available Gemini generative model for this key to prevent 404s
-    let targetModel = "models/gemini-2.0-flash"; // More stable fallback than 1.5-flash
-    let discoveryAttempted = false;
-    try {
-        const modelsRes = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {}, 2, 500);
-        discoveryAttempted = true;
-        if (modelsRes.ok) {
-            const modelsData = await modelsRes.json();
-            if (modelsData && modelsData.models) {
-                const genModels = modelsData.models.filter(m =>
-                    m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent')
-                );
-                if (genModels.length > 0) {
-                    // Prefer gemini-2.0-flash, then 1.5-flash/pro
-                    const preferred = genModels.find(m => m.name.includes('gemini-2.0-flash'))
-                        || genModels.find(m => m.name.includes('gemini-2.5-flash'))
-                        || genModels.find(m => m.name.includes('gemini-1.5-pro'));
-                    targetModel = preferred ? preferred.name : genModels[0].name;
-                }
-            }
-        } else {
-            console.warn("Model discovery HTTP error. Status:", modelsRes.status);
-        }
-    } catch (e) {
-        console.warn("Failed to auto-discover Gemini models. Using fallback.", e);
-    }
-
+    const targetModel = "models/gemini-2.5-flash"; // Hardcoded to prevent 429 auto-discovery spam
     const modelUrlId = targetModel.replace('models/', '');
     const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelUrlId}:streamGenerateContent?key=${apiKey}`;
 

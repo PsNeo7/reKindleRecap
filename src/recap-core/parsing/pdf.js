@@ -20,9 +20,24 @@ export async function parsePdfFile(file) {
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
             const meta = await pdf.getMetadata();
+            let coverBase64 = null;
+            try {
+                const page1 = await pdf.getPage(1);
+                const viewport = page1.getViewport({ scale: 0.5 }); // lower resolution for thumb
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                await page1.render({ canvasContext: context, viewport: viewport }).promise;
+                coverBase64 = canvas.toDataURL('image/jpeg', 0.8);
+            } catch (e) {
+                console.warn('Failed to extract PDF cover', e);
+            }
+
             const metadata = {
                 title: meta?.info?.Title || file.name.replace('.pdf', ''),
-                author: meta?.info?.Author || "Unknown Author"
+                author: meta?.info?.Author || "Unknown Author",
+                coverBase64
             };
 
             const chunks = [];

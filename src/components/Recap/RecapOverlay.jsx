@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, AlertCircle, BookOpen, Users, MessageCircle, History, RefreshCw } from 'lucide-react';
 import { useApiConfig } from '../../core/useApiConfig.js';
-import { CURRENT_BOOK_METADATA } from '../../core/MockReaderAdapter.js';
+
 import { retrieveMultiPassContext } from '../../recap-core/rag/retrieve.js';
 import { generateSystemPrompt } from '../../recap-core/prompt.js';
 import { streamRecap } from '../../recap-core/ProviderRouter.js';
@@ -15,7 +15,7 @@ import CharacterRoster from './CharacterRoster.jsx';
 import QuestionPanel from './QuestionPanel.jsx';
 import RecapHistory from './RecapHistory.jsx';
 
-export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 'epub' }) {
+export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 'epub', bookKey }) {
     const { provider, activeKey, hasActiveKey } = useApiConfig();
     const [status, setStatus] = useState('initializing'); // initializing, streaming, complete, error
     const [errorObj, setErrorObj] = useState(null);
@@ -50,10 +50,10 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
             const targetChapter = overrideChapter ?? currentChapter;
 
             // 0. Check recap output cache first (instant if cached)
-            const bookKey = CURRENT_BOOK_METADATA.title;
+            const safeBookKey = bookKey || "Unknown Book";
             const skipCache = force || forceRefresh;
             if (!skipCache) {
-                const cached = await loadRecapOutput(bookKey, targetChapter);
+                const cached = await loadRecapOutput(safeBookKey, targetChapter);
                 if (cached) {
                     setRawMarkdown(cached.markdown);
                     setStatus('complete');
@@ -88,7 +88,7 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
             const safeContextChunks = await retrieveMultiPassContext(
                 ragProvider,
                 ragKey,
-                CURRENT_BOOK_METADATA.title,
+                safeBookKey,
                 currentChapter,
                 8,
                 fileType
@@ -97,8 +97,8 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
             // 3. Build Prompt
             const progressText = fileType === 'pdf' ? `Page ${currentChapter}` : `Chapter ${currentChapter}`;
             const systemPrompt = generateSystemPrompt(
-                CURRENT_BOOK_METADATA.title,
-                CURRENT_BOOK_METADATA.author,
+                safeBookKey,
+                "",
                 progressText
             );
 
@@ -118,7 +118,7 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
             );
 
             // 5. Cache the completed recap output
-            await saveRecapOutput(bookKey, currentChapter, accumulated);
+            await saveRecapOutput(safeBookKey, currentChapter, accumulated);
 
             setStatus('complete');
 
@@ -146,7 +146,7 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                         </h2>
                         {status !== 'error' && (
                             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                {CURRENT_BOOK_METADATA.title} · {progressLabel}
+                                {bookKey || "Unknown Book"} · {progressLabel}
                             </p>
                         )}
                     </div>
@@ -271,12 +271,14 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                         <QuestionPanel
                             currentChapter={currentChapter}
                             fileType={fileType}
+                            bookKey={bookKey}
                         />
                     )}
 
                     {activeTab === 'history' && (
                         <RecapHistory
                             fileType={fileType}
+                            bookKey={bookKey}
                             onLoadCachedRecap={(chapter) => {
                                 // Bypassing normal effect dependencies to explicitly trigger loads
                                 startRecapProcess(chapter);

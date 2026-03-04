@@ -1,9 +1,9 @@
-import { buildCacheKey, loadVectorCache, saveVectorCache } from './VectorCache.js';
+import { buildCacheKey, loadVectorCache, saveVectorCache, updateBookMetadata } from './VectorCache.js';
 import { globalVectorStore } from './VectorDB.js';
 import { parseEpubFile } from '../recap-core/parsing/epub.js';
 import { parsePdfFile } from '../recap-core/parsing/pdf.js';
 import { fetchEmbeddings } from '../recap-core/rag/ingest.js';
-import { setCurrentBookMetadata } from './MockReaderAdapter.js';
+
 
 /**
  * Handles checking cache, parsing, embedding, and explicitly loading the global vector store.
@@ -26,11 +26,7 @@ export async function processBookIngestion(file, provider, apiKey, onProgress = 
             await globalVectorStore.clear();
             await globalVectorStore.addDocuments(cached);
 
-            // Restore metadata from first chunk so Recap knows the title
             const firstChunk = cached[0];
-            if (firstChunk?.metadata?.title) {
-                setCurrentBookMetadata(firstChunk.metadata.title, firstChunk.metadata.author);
-            }
 
             onProgress(`Ready. Loaded from cache. (0 API calls)`);
             return;
@@ -47,8 +43,13 @@ export async function processBookIngestion(file, provider, apiKey, onProgress = 
         const isEpub = file.type === 'application/epub+zip' || file.name.endsWith('.epub');
         const parseResult = isEpub ? await parseEpubFile(file) : await parsePdfFile(file);
 
-        // Update global reader session so the rest of the app knows what book is active
-        setCurrentBookMetadata(parseResult.metadata.title, parseResult.metadata.author);
+        // Save extracted metadata like actual covers back to the library view
+        await updateBookMetadata(file.name, {
+            title: parseResult.metadata.title,
+            author: parseResult.metadata.author,
+            coverBase64: parseResult.metadata.coverBase64
+        });
+
 
         const bookChunks = parseResult.chunks.map((chunk) => ({
             text: chunk.text,

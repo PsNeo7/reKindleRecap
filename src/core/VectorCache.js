@@ -288,3 +288,30 @@ export async function updateBookProgress(bookKey, progress) {
         console.warn('[Library] Failed to update progress:', err);
     }
 }
+
+/**
+ * Update arbitrary metadata for a specific book.
+ * @param {string} bookKey 
+ * @param {Object} newMetadata 
+ */
+export async function updateBookMetadata(bookKey, newMetadata) {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_BOOKS, 'readwrite');
+        const store = tx.objectStore(STORE_BOOKS);
+
+        const book = await new Promise((res, rej) => {
+            const req = store.get(bookKey);
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.target.error);
+        });
+
+        if (book) {
+            book.metadata = { ...book.metadata, ...newMetadata };
+            store.put(book);
+            await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        }
+    } catch (err) {
+        console.warn('[Library] Failed to update metadata:', err);
+    }
+}
