@@ -14,8 +14,21 @@ export default function PlotSummary({ markdown, isStreaming }) {
 
     if (!markdown && isStreaming) {
         return (
-            <div style={{ padding: '32px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Building plot timeline...
+            <div style={{ padding: '32px 12px', color: 'var(--text-secondary)', animation: 'fadeSlideIn 0.3s ease both' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
+                    <div className="streaming-skeleton-line" style={{ width: '80%' }} />
+                    <div className="streaming-skeleton-line" style={{ width: '64%' }} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
+                    <div className="streaming-skeleton-line" style={{ width: '70%' }} />
+                    <div className="streaming-skeleton-line" style={{ width: '90%' }} />
+                    <div className="streaming-skeleton-line" style={{ width: '50%' }} />
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '24px' }}>
+                    <span className="typing-glow-active" style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        Synthesizing Timeline
+                    </span>
+                </div>
             </div>
         );
     }
@@ -25,16 +38,37 @@ export default function PlotSummary({ markdown, isStreaming }) {
     // Parse bullet lines, skipping stray headers
     const lines = markdown.split('\n');
     const events = [];
+    let currentEvent = '';
 
     for (const line of lines) {
         if (line.trimStart().startsWith('#')) continue;
-        const stripped = line.replace(/^-\s+/, '').trim();
-        if (stripped.length > 0) {
-            events.push(stripped.replace(/\*\*/g, ''));
+
+        // If it looks like a new bullet
+        if (/^[-*]\s+/.test(line.trimStart())) {
+            if (currentEvent.trim()) events.push(currentEvent.trim().replace(/\*\*/g, ''));
+            currentEvent = line.trimStart().replace(/^[-*]\s+/, '');
+        } else {
+            // Continuation of a bullet
+            const text = line.trim();
+            if (text.length > 0) {
+                currentEvent += ' ' + text;
+            }
+        }
+    }
+    if (currentEvent.trim()) events.push(currentEvent.trim().replace(/\*\*/g, ''));
+
+    // Strip out stray ### fragments that might have leaked into the text inline
+    for (let i = 0; i < events.length; i++) {
+        const headerIdx = events[i].indexOf('###');
+        if (headerIdx !== -1) {
+            events[i] = events[i].substring(0, headerIdx).trim();
         }
     }
 
-    if (events.length === 0) {
+    // Filter out empties that might have resulted from stripping
+    const finalEvents = events.filter(e => e.length > 0);
+
+    if (finalEvents.length === 0) {
         return (
             <div style={{ padding: '24px', color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '1rem' }}>
                 {markdown}
@@ -43,7 +77,7 @@ export default function PlotSummary({ markdown, isStreaming }) {
     }
 
     // Reverse so the most recent (last from AI) is index 0
-    const reversed = [...events].reverse();
+    const reversed = [...finalEvents].reverse();
     const olderCount = Math.max(0, reversed.length - INITIAL_VISIBLE);
     const visibleEvents = expanded ? reversed : reversed.slice(0, INITIAL_VISIBLE);
 
@@ -150,12 +184,14 @@ export default function PlotSummary({ markdown, isStreaming }) {
                                         Event {chronoLabel}
                                     </span>
                                 </div>
-                                <p style={{
-                                    margin: 0,
-                                    fontSize: '0.96rem',
-                                    color: isNewest ? 'var(--text-primary)' : 'var(--text-secondary)',
-                                    lineHeight: 1.7,
-                                }}>
+                                <p className={isStreaming && isNewest ? 'typing-glow-active' : (isStreaming ? 'typing-glow-dimmed' : '')}
+                                    style={{
+                                        margin: 0,
+                                        fontSize: '0.96rem',
+                                        color: isNewest && !isStreaming ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                        lineHeight: 1.7,
+                                        transition: 'color 0.5s ease',
+                                    }}>
                                     {event}
                                 </p>
                             </div>

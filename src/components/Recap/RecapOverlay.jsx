@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, AlertCircle, BookOpen, Users, MessageCircle, History } from 'lucide-react';
+import { X, AlertCircle, BookOpen, Users, MessageCircle, History, RefreshCw } from 'lucide-react';
 import { useApiConfig } from '../../core/useApiConfig.js';
 import { CURRENT_BOOK_METADATA } from '../../core/MockReaderAdapter.js';
 import { retrieveMultiPassContext } from '../../recap-core/rag/retrieve.js';
@@ -44,14 +44,15 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
         startRecapProcess();
     }, [hasActiveKey, currentChapter]);
 
-    const startRecapProcess = async (overrideChapter = null) => {
+    const startRecapProcess = async (overrideChapter = null, force = false) => {
         try {
             setStatus('initializing');
             const targetChapter = overrideChapter ?? currentChapter;
 
             // 0. Check recap output cache first (instant if cached)
             const bookKey = CURRENT_BOOK_METADATA.title;
-            if (!forceRefresh) {
+            const skipCache = force || forceRefresh;
+            if (!skipCache) {
                 const cached = await loadRecapOutput(bookKey, targetChapter);
                 if (cached) {
                     setRawMarkdown(cached.markdown);
@@ -128,7 +129,7 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
     };
 
     const parsedData = parseRecapStream(rawMarkdown);
-    const isActive = status === 'streaming' || status === 'complete';
+    const isActive = status === 'streaming' || status === 'complete' || status === 'error';
     const progressLabel = fileType === 'pdf' ? `Page ${currentChapter}` : `Chapter ${currentChapter}`;
 
     return (
@@ -149,7 +150,21 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                             </p>
                         )}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        {status === 'complete' && (
+                            <button
+                                onClick={() => startRecapProcess(null, true)}
+                                style={{
+                                    background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontFamily: 'var(--font-family)', transition: 'color 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+                                onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+                                title="Regenerate Recap"
+                            >
+                                <RefreshCw size={14} /> Regenerate
+                            </button>
+                        )}
                         <ExportButton rawMarkdown={status === 'complete' ? rawMarkdown : ''} />
                         <button onClick={onClose} style={styles.closeBtn}><X size={20} /></button>
                     </div>
@@ -194,12 +209,43 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                     {status === 'initializing' && <RecapSkeleton />}
 
                     {status === 'error' && (
-                        <div style={styles.errorBox}>
-                            <AlertCircle size={40} color="var(--danger-color)" style={{ marginBottom: '16px' }} />
-                            <h3 style={{ marginBottom: '8px' }}>Failed to Generate Recap</h3>
-                            <p style={{ color: 'var(--text-secondary)' }}>{errorObj?.message}</p>
-                            <button className="btn-primary" onClick={onClose} style={{ marginTop: '24px' }}>
-                                Close &amp; Configure Settings
+                        <div style={{
+                            background: 'rgba(239,68,68,0.1)',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            borderRadius: '8px',
+                            padding: '12px 16px',
+                            marginBottom: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            animation: 'fadeSlideIn 0.3s ease both'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <AlertCircle size={20} color="var(--danger-color)" />
+                                <div>
+                                    <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-primary)' }}>Generation Interrupted</h4>
+                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{errorObj?.message || 'A network error occurred.'}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => startRecapProcess(null, true)}
+                                style={{
+                                    background: 'rgba(239,68,68,0.15)',
+                                    border: '1px solid rgba(239,68,68,0.3)',
+                                    color: 'var(--text-primary)',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    transition: 'background 0.2s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.15)'}
+                            >
+                                <RefreshCw size={14} /> Retry
                             </button>
                         </div>
                     )}
@@ -271,6 +317,7 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
+        background: 'var(--surface-color)', /* Opaque background to prevent text bleed-through */
     },
     header: {
         padding: '20px 28px',

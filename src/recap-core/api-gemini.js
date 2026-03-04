@@ -1,3 +1,5 @@
+import { fetchWithRetry } from './fetchWithRetry.js';
+
 /**
  * Fetches a streaming recap from Google's Gemini.
  */
@@ -6,7 +8,7 @@ export async function fetchGeminiStream(apiKey, systemPrompt, contextChunks = []
     let targetModel = "models/gemini-2.0-flash"; // More stable fallback than 1.5-flash
     let discoveryAttempted = false;
     try {
-        const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        const modelsRes = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {}, 2, 500);
         discoveryAttempted = true;
         if (modelsRes.ok) {
             const modelsData = await modelsRes.json();
@@ -40,7 +42,7 @@ export async function fetchGeminiStream(apiKey, systemPrompt, contextChunks = []
     }
 
     try {
-        const response = await fetch(GEMINI_API_URL, {
+        const response = await fetchWithRetry(GEMINI_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

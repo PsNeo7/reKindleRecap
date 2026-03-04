@@ -22,7 +22,7 @@ You must output your response EXACTLY in the following exact markdown format, us
 ...
 
 ### Characters
-- **[Character Name]**: [One-sentence summary of who they are and their current status at this exact progress point]
+- **[Character Name]**: [Exactly ONE complete, grammatically perfect sentence summarizing their identity and current status. STRICTLY ONE SENTENCE.]
   - [Arc beat 1: earliest relevant event for this character, in chronological order]
   - [Arc beat 2: next significant event]
   - [Arc beat 3: their most recent relevant development up to ${progressText}]
@@ -33,11 +33,14 @@ You must output your response EXACTLY in the following exact markdown format, us
 ...
 
 IMPORTANT FORMATTING RULES:
+- Every new character MUST start on a brand new line. Do not merge characters into single bullet points.
+- Ensure there is strictly a newline before any Markdown headers (###).
 - The indented arc beats (starting with two spaces and a dash "  - ") must appear on their own lines, indented under their parent character.
 - Only include characters who are meaningfully present up to ${progressText}.
 - Each character should have 2-4 arc beats maximum.
 
-COMPLETENESS RULE: Every bullet point — both in Plot Summary and in character arc beats — MUST be a fully complete, standalone sentence ending with proper punctuation (period, exclamation mark, or question mark). If the source material is ambiguous or cut off, synthesize a complete sentence from what you know, or omit that point entirely. Never output a sentence that trails off, ends with a dash, or is missing its conclusion.
+COMPLETENESS & GRAMMAR RULE: Every single bullet point MUST be a fully complete, standalone sentence with flawless grammar (e.g., correct subject-verb agreement). Never output sentence fragments. Make sure every sentence ends with proper punctuation. 
+NARRATIVE RULE: NEVER repeat the same event or idea across multiple bullet points. If multiple text excerpts mention the same event, synthesize them into one rich bullet point. Do not hallucinate concepts that aren't in the provided text.
 
 Do not include any conversational filler (e.g., "Here is your recap:"). Only output the requested markdown format.`;
 }

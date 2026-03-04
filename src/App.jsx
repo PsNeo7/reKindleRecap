@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import SettingsModal from './components/SettingsModal.jsx'
 import RecapOverlay from './components/Recap/RecapOverlay.jsx'
+import VersionPrompt from './components/VersionPrompt.jsx'
 import EpubViewer from './components/Reader/EpubViewer.jsx'
 import PdfViewer from './components/Reader/PdfViewer.jsx'
 import { Sparkles, Settings, Sun, Moon, X } from 'lucide-react'
@@ -8,6 +9,10 @@ import { useTheme } from './core/useTheme.js'
 import { useKeyboardShortcuts } from './core/useKeyboardShortcuts.js'
 import { useReadingSession } from './core/useReadingSession.js'
 import { CURRENT_BOOK_METADATA } from './core/MockReaderAdapter.js'
+import { useApiConfig } from './core/useApiConfig.js'
+import { loadAllBooksFromLibrary, saveBookToLibrary, deleteBookFromLibrary, updateBookProgress } from './core/VectorCache.js'
+import { processBookIngestion } from './core/ingestionWorkflow.js'
+import { useEffect } from 'react'
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -18,8 +23,19 @@ function App() {
 
   const [currentProgress, setCurrentProgress] = useState(1)
   const [chapterLabel, setChapterLabel] = useState('')
+  const [currentEpubLocation, setCurrentEpubLocation] = useState(null)
+
+  const [library, setLibrary] = useState([])
+  const [isIngesting, setIsIngesting] = useState(false)
+  const [isVectorLoading, setIsVectorLoading] = useState(false) // Non-blocking loading state for library cache hit swaps
+  const [ingestStatus, setIngestStatus] = useState('')
 
   const { theme, toggleTheme } = useTheme()
+  const { provider, activeKey } = useApiConfig()
+
+  useEffect(() => {
+    loadAllBooksFromLibrary().then(setLibrary)
+  }, [])
 
   // Reading session awareness
   const bookKey = file ? CURRENT_BOOK_METADATA.title : null
@@ -28,7 +44,7 @@ function App() {
   // Keyboard shortcuts
   const isModalOpen = isSettingsOpen || isRecapOpen
   useKeyboardShortcuts({
-    onOpenRecap: useCallback(() => { if (file) setIsRecapOpen(true) }, [file]),
+    onOpenRecap: useCallback(() => { if (file && !isVectorLoading && !isIngesting) setIsRecapOpen(true) }, [file, isVectorLoading, isIngesting]),
     onCloseModal: useCallback(() => {
       setIsSettingsOpen(false)
       setIsRecapOpen(false)
@@ -37,33 +53,87 @@ function App() {
     isModalOpen,
   })
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const uploadedFile = e.target.files[0]
     if (!uploadedFile) return
 
+    const isEpub = uploadedFile.type === 'application/epub+zip' || uploadedFile.name.endsWith('.epub')
+    const isPdf = uploadedFile.type === 'application/pdf' || uploadedFile.name.endsWith('.pdf')
+
+    if (!isEpub && !isPdf) {
+      alert("Unsupported file type. Please upload an EPUB or PDF.")
+      return
+    }
+
+    const type = isEpub ? 'epub' : 'pdf'
+
+    setIsIngesting(true)
+    await saveBookToLibrary(uploadedFile, uploadedFile.name, { type })
+    await processBookIngestion(uploadedFile, provider, activeKey, setIngestStatus)
+    setIsIngesting(false)
+
+    setLibrary(await loadAllBooksFromLibrary())
+
     setFile(uploadedFile)
-    if (uploadedFile.type === 'application/epub+zip' || uploadedFile.name.endsWith('.epub')) {
-      setFileType('epub')
+    setFileType(type)
+    setCurrentProgress(1)
+    setChapterLabel('')
+    setCurrentEpubLocation(null)
+  }
+
+  const handleSelectBook = async (book) => {
+    // Open the book instantly for reading, zero UI blocking!
+    setFile(book.file)
+    setFileType(book.metadata.type)
+
+    if (book.metadata.progress) {
+      if (book.metadata.type === 'epub') {
+        setCurrentEpubLocation(book.metadata.progress.epubcfi || null)
+        setCurrentProgress(book.metadata.progress.chapterIndex || 1)
+        setChapterLabel(book.metadata.progress.chapterLabel || '')
+      } else {
+        setCurrentProgress(book.metadata.progress.page || 1)
+      }
+    } else {
+      setCurrentEpubLocation(null)
       setCurrentProgress(1)
       setChapterLabel('')
-    } else if (uploadedFile.type === 'application/pdf' || uploadedFile.name.endsWith('.pdf')) {
-      setFileType('pdf')
-      setCurrentProgress(1)
-    } else {
-      alert("Unsupported file type. Please upload an EPUB or PDF.")
-      setFile(null)
+    }
+
+    // Render a lightweight "Loading Vector Cache" state on the Recap button 
+    setIsVectorLoading(true)
+    try {
+      await processBookIngestion(book.file, provider, activeKey)
+    } catch (err) {
+      console.warn("Background ingestion failed or cache missed:", err)
+    } finally {
+      setIsVectorLoading(false)
     }
   }
 
-  const handleChapterChange = (chapterIndex, label) => {
+  const handleDeleteBook = async (bookKey) => {
+    if (confirm(`Remove ${bookKey} from your library?`)) {
+      await deleteBookFromLibrary(bookKey)
+      setLibrary(await loadAllBooksFromLibrary())
+    }
+  }
+
+  const handleLocationChange = (epubcfi, chapterIndex, label) => {
     setCurrentProgress(chapterIndex)
     setChapterLabel(label)
+    setCurrentEpubLocation(epubcfi)
     updateChapter(chapterIndex)
+    if (file) {
+      updateBookProgress(file.name, { epubcfi, chapterIndex, chapterLabel: label }).catch(console.error)
+    }
   }
 
   const handlePageChange = (page) => {
     setCurrentProgress(page)
     updateChapter(page)
+    if (file) {
+      updateBookProgress(file.name, { page }).catch(console.error)
+    }
   }
 
   return (
@@ -72,8 +142,13 @@ function App() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Rekindle Recap</h1>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {file && (
-            <button className="btn-primary" onClick={() => setIsRecapOpen(true)} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <Sparkles size={18} /> Get Recap
+            <button
+              className="btn-primary"
+              onClick={() => setIsRecapOpen(true)}
+              disabled={isVectorLoading || isIngesting}
+              style={{ display: 'flex', gap: '8px', alignItems: 'center', opacity: (isVectorLoading || isIngesting) ? 0.6 : 1, cursor: (isVectorLoading || isIngesting) ? 'not-allowed' : 'pointer' }}
+            >
+              <Sparkles size={18} /> {isVectorLoading ? 'Loading Context...' : 'Get Recap'}
             </button>
           )}
           <button
@@ -105,13 +180,50 @@ function App() {
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
               Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers.
             </p>
-            <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px' }}>
-              Select EPUB / PDF
-              <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
-            </label>
-            <p style={{ marginTop: '16px', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.6 }}>
-              Keyboard: <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>R</kbd> Recap · <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>S</kbd> Settings · <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>Esc</kbd> Close
-            </p>
+            {isIngesting ? (
+              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div className="skeleton" style={{ width: '200px', height: '6px', borderRadius: '4px' }} />
+                <p style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>{ingestStatus || 'Processing book...'}</p>
+              </div>
+            ) : (
+              <>
+                <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px' }}>
+                  Select EPUB / PDF
+                  <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
+                </label>
+                <p style={{ marginTop: '16px', fontSize: '0.75rem', color: 'var(--text-secondary)', opacity: 0.6 }}>
+                  Keyboard: <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>R</kbd> Recap · <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>S</kbd> Settings · <kbd style={{ padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: '4px', fontSize: '0.7rem' }}>Esc</kbd> Close
+                </p>
+              </>
+            )}
+
+            {/* Application Library view */}
+            {!isIngesting && library && library.length > 0 && (
+              <div style={{ marginTop: '3rem', width: '100%', maxWidth: '600px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
+                <h3 style={{ marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Your Library
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {library.map(book => (
+                    <div key={book.bookKey} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-hover)',
+                      padding: '14px 18px', borderRadius: '12px'
+                    }}>
+                      <div style={{ cursor: 'pointer', flex: 1 }} onClick={() => handleSelectBook(book)}>
+                        <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>{book.name}</h4>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                          {book.metadata?.type?.toUpperCase()} • Added {new Date(book.addedAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                      <button onClick={() => handleDeleteBook(book.bookKey)} style={{ background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', padding: '8px', opacity: 0.7, transition: 'opacity 0.2s' }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.7}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -131,7 +243,8 @@ function App() {
               {fileType === 'epub' && (
                 <EpubViewer
                   file={file}
-                  onChapterChange={handleChapterChange}
+                  initialLocation={currentEpubLocation}
+                  onLocationChange={handleLocationChange}
                 />
               )}
               {fileType === 'pdf' && (
@@ -184,6 +297,7 @@ function App() {
         </div>
       )}
 
+      <VersionPrompt />
       {isSettingsOpen && <SettingsModal uploadedFile={file} onClose={() => setIsSettingsOpen(false)} />}
       {isRecapOpen && <RecapOverlay currentChapter={currentProgress} fileType={fileType} onClose={() => setIsRecapOpen(false)} />}
     </div>

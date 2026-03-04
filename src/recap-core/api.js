@@ -1,3 +1,5 @@
+import { fetchWithRetry } from './fetchWithRetry.js';
+
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
@@ -27,7 +29,7 @@ export async function fetchRecapStream(apiKey, systemPrompt, contextChunks = [],
     });
 
     try {
-        const response = await fetch(OPENAI_API_URL, {
+        const response = await fetchWithRetry(OPENAI_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

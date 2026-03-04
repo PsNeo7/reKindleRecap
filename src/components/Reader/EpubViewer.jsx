@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReactReader } from 'react-reader';
 
-export default function EpubViewer({ file, onChapterChange }) {
+export default function EpubViewer({ file, initialLocation, onLocationChange }) {
     const [buffer, setBuffer] = useState(null);
-    const [location, setLocation] = useState(null);
+    const [location, setLocation] = useState(initialLocation || null);
     const [chapterLabel, setChapterLabel] = useState('');
     const renditionRef = useRef(null);
     const tocRef = useRef([]);
@@ -13,7 +13,7 @@ export default function EpubViewer({ file, onChapterChange }) {
     useEffect(() => {
         if (!file) return;
         setBuffer(null); // Reset on new file
-        setLocation(null);
+        setLocation(initialLocation || null);
         if (file instanceof File) {
             const reader = new FileReader();
             reader.onload = (e) => setBuffer(e.target.result);
@@ -48,7 +48,7 @@ export default function EpubViewer({ file, onChapterChange }) {
             const label = tocEntry?.label?.trim() || `Chapter ${chapterIndex}`;
 
             setChapterLabel(label);
-            onChapterChange?.(chapterIndex, label);
+            onLocationChange?.(epubcfi, chapterIndex, label);
         } catch (e) {
             // Silently ignore CFI parsing errors (common when navigating)
         }

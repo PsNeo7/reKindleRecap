@@ -45,7 +45,10 @@ export function parseRecapStream(markdownText) {
 export function parseCharacters(markdown) {
     if (!markdown) return [];
 
-    const lines = markdown.split('\n');
+    // Aggressively split glued characters onto new lines
+    // e.g., "  - Beat 1- **New Char**: summary" -> "  - Beat 1\n- **New Char**: summary"
+    let cleanMarkdown = markdown.replace(/([^\n])(-\s+\*\*[^*]+\*\*[:\s]+)/g, '$1\n$2');
+    const lines = cleanMarkdown.split('\n');
     const characters = [];
     let current = null;
 

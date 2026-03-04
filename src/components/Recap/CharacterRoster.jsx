@@ -85,10 +85,10 @@ function CharacterCard({ char, colorIndex, isStreamingTarget }) {
                     }}>
                         {char.name}
                     </div>
-                    <p style={{
+                    <p className={isStreamingTarget ? 'typing-glow-active' : ''} style={{
                         margin: 0,
                         fontSize: '0.85rem',
-                        color: 'var(--text-secondary)',
+                        color: isStreamingTarget ? 'var(--text-primary)' : 'var(--text-secondary)',
                         lineHeight: 1.5,
                         overflow: 'hidden',
                         display: '-webkit-box',
@@ -165,11 +165,12 @@ function CharacterCard({ char, colorIndex, isStreamingTarget }) {
                                     border: `1px solid ${color.replace('0.85', '0.3')}`,
                                 }} />
 
-                                <p style={{
+                                <p className={isStreamingTarget && i === char.arc.length - 1 ? 'typing-glow-active' : ''} style={{
                                     margin: 0,
                                     fontSize: '0.87rem',
-                                    color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                    color: i === 0 && !isStreamingTarget ? 'var(--text-primary)' : 'var(--text-secondary)',
                                     lineHeight: 1.6,
+                                    transition: 'color 0.5s ease',
                                 }}>
                                     {beat}
                                 </p>
@@ -200,8 +201,15 @@ function CharacterCard({ char, colorIndex, isStreamingTarget }) {
 export default function CharacterRoster({ characters, isStreaming }) {
     if ((!characters || characters.length === 0) && isStreaming) {
         return (
-            <div style={{ padding: '32px', color: 'var(--text-secondary)', textAlign: 'center' }}>
-                Awaiting character details...
+            <div style={{ padding: '32px 12px', display: 'flex', flexDirection: 'column', gap: '16px', animation: 'fadeSlideIn 0.3s ease both' }}>
+                <div className="streaming-skeleton-line" style={{ width: '100%', height: '80px', borderRadius: '12px', marginBottom: 0 }} />
+                <div className="streaming-skeleton-line" style={{ width: '100%', height: '80px', borderRadius: '12px', marginBottom: 0, opacity: 0.7 }} />
+                <div className="streaming-skeleton-line" style={{ width: '100%', height: '80px', borderRadius: '12px', marginBottom: 0, opacity: 0.4 }} />
+                <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                    <span className="typing-glow-active" style={{ fontSize: '0.85rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        Extracting Characters
+                    </span>
+                </div>
             </div>
         );
     }

@@ -20,7 +20,7 @@
   /* Red 500 */
 
   /* Glassmorphism */
-  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-bg: rgba(30, 41, 59, 0.9);
   --glass-border: rgba(255, 255, 255, 0.1);
 }
 
@@ -202,5 +202,73 @@ body {
   50% {
     opacity: 0.4;
     transform: scale(0.8);
+  }
+}
+
+/* ============================================================== 
+ * Phase 7: Aesthetic Streaming UI Classes 
+ * ============================================================== */
+
+/* The active, glowing sentence currently being "typed" by the LLM */
+.typing-glow-active {
+  color: var(--text-primary) !important;
+  text-shadow: 0 0 12px rgba(99, 102, 241, 0.6), 0 0 24px rgba(99, 102, 241, 0.3);
+  animation: glowPulse 1.5s infinite alternate;
+}
+
+/* The blinking text cursor at the end */
+.typing-glow-active::after {
+  content: ' █';
+  color: var(--accent-color);
+  animation: cursorBlink 1s step-end infinite;
+}
+
+/* Older generated text smoothly dims to reduce eye strain */
+.typing-glow-dimmed {
+  color: var(--text-secondary) !important;
+  opacity: 0.6;
+  transition: opacity 0.5s ease-out, color 0.5s ease-out;
+}
+
+@keyframes glowPulse {
+  0% {
+    text-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  }
+
+  100% {
+    text-shadow: 0 0 16px rgba(99, 102, 241, 0.8), 0 0 32px rgba(99, 102, 241, 0.4);
+  }
+}
+
+@keyframes cursorBlink {
+
+  0%,
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 12px var(--accent-color);
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Glowing skeleton lines for progressive shimmer */
+.streaming-skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.05) 25%, rgba(99, 102, 241, 0.2) 50%, rgba(99, 102, 241, 0.05) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 2s infinite linear;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
   }
 }

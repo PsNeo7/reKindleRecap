@@ -1,15 +1,19 @@
 import { globalVectorStore } from '../../core/VectorDB.js';
+import { fetchWithRetry } from '../fetchWithRetry.js';
 
 /**
  * Fetches embeddings for an array of texts. Supports OpenAI and Gemini.
  */
 export async function fetchEmbeddings(provider, apiKey, texts) {
+    const BATCH_SIZE = 100;
+    const allEmbeddings = [];
+
+    let geminiTargetModel = "models/text-embedding-004";
+    let geminiModelUrlId = "text-embedding-004";
+
     if (provider === 'gemini') {
         // First, let's discover the best available embedding model for this specific API key
-        const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        let targetModel = "models/text-embedding-004"; // Fallback default
-        let modelUrlId = "text-embedding-004";
-
+        const modelsRes = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`, {}, 2, 500);
         if (modelsRes.ok) {
             const modelsData = await modelsRes.json();
             if (modelsData && modelsData.models) {
@@ -20,52 +24,61 @@ export async function fetchEmbeddings(provider, apiKey, texts) {
                 if (embedModels.length > 0) {
                     // Prefer text-embedding-004, otherwise take whatever is available
                     const preferred = embedModels.find(m => m.name.includes('text-embedding-004'));
-                    targetModel = preferred ? preferred.name : embedModels[0].name;
-                    modelUrlId = targetModel.replace('models/', '');
+                    geminiTargetModel = preferred ? preferred.name : embedModels[0].name;
+                    geminiModelUrlId = geminiTargetModel.replace('models/', '');
                 }
             }
         }
+    }
 
-        const requests = texts.map(text => ({
-            model: targetModel,
-            content: { parts: [{ text }] }
-        }));
+    // Process in batches to avoid API limits (e.g., Gemini has a max 100 limit for batchEmbedContents)
+    for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+        const batchTexts = texts.slice(i, i + BATCH_SIZE);
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelUrlId}:batchEmbedContents?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requests }),
-        });
+        if (provider === 'gemini') {
+            const requests = batchTexts.map(text => ({
+                model: geminiTargetModel,
+                content: { parts: [{ text }] }
+            }));
 
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error(`Gemini Embedding error: ${response.status} - ${err}`);
+            const response = await fetchWithRetry(`https://generativelanguage.googleapis.com/v1beta/models/${geminiModelUrlId}:batchEmbedContents?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ requests }),
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Gemini Embedding error: ${response.status} - ${err}`);
+            }
+
+            const data = await response.json();
+            allEmbeddings.push(...data.embeddings.map(d => d.values));
+        } else {
+            // Default to OpenAI
+            const response = await fetchWithRetry('https://api.openai.com/v1/embeddings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: 'text-embedding-3-small',
+                    input: batchTexts,
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`OpenAI Embedding error: ${response.status} - ${err}`);
+            }
+
+            const data = await response.json();
+            allEmbeddings.push(...data.data.map(d => d.embedding));
         }
-
-        const data = await response.json();
-        return data.embeddings.map(d => d.values);
     }
 
-    // Default to OpenAI
-    const response = await fetch('https://api.openai.com/v1/embeddings', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: 'text-embedding-3-small',
-            input: texts,
-        }),
-    });
-
-    if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`OpenAI Embedding error: ${response.status} - ${err}`);
-    }
-
-    const data = await response.json();
-    return data.data.map(d => d.embedding);
+    return allEmbeddings;
 }
 
 /**

@@ -93,6 +93,42 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub' }) {
         }
     };
 
+    const renderMessageText = (text) => {
+        if (!text) return null;
+
+        // Split by a regex that captures **bold**, *italic*, and `code`
+        const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
+
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} style={{ fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+            }
+            if (part.startsWith('*') && part.endsWith('*')) {
+                return <em key={i}>{part.slice(1, -1)}</em>;
+            }
+            if (part.startsWith('`') && part.endsWith('`')) {
+                return (
+                    <code key={i} style={{
+                        background: 'rgba(0,0,0,0.2)',
+                        padding: '2px 4px',
+                        borderRadius: '4px',
+                        fontFamily: 'monospace',
+                        color: 'var(--accent-color)'
+                    }}>
+                        {part.slice(1, -1)}
+                    </code>
+                );
+            }
+            // Preserve newlines for regular text
+            return part.split('\n').map((line, j) => (
+                <React.Fragment key={`${i}-${j}`}>
+                    {j > 0 && <br />}
+                    {line}
+                </React.Fragment>
+            ));
+        });
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Messages area */}
@@ -142,7 +178,7 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub' }) {
                             lineHeight: 1.6,
                             border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.06)',
                         }}>
-                            {msg.text || (isLoading ? '...' : '')}
+                            {msg.text ? renderMessageText(msg.text) : (isLoading ? '...' : '')}
                         </div>
                         <div style={{
                             fontSize: '0.68rem',

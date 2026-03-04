@@ -6,9 +6,10 @@
  */
 
 const DB_NAME = 'rekindleRecapCache';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_VECTORS = 'vectorStores';
 const STORE_RECAPS = 'recapOutputs';
+const STORE_BOOKS = 'libraryBooks';
 
 function openDb() {
     return new Promise((resolve, reject) => {
@@ -20,6 +21,9 @@ function openDb() {
             }
             if (!db.objectStoreNames.contains(STORE_RECAPS)) {
                 db.createObjectStore(STORE_RECAPS, { keyPath: 'recapKey' });
+            }
+            if (!db.objectStoreNames.contains(STORE_BOOKS)) {
+                db.createObjectStore(STORE_BOOKS, { keyPath: 'bookKey' });
             }
         };
         req.onsuccess = (e) => resolve(e.target.result);
@@ -191,5 +195,96 @@ export async function listRecapOutputs(bookKey) {
             .sort((a, b) => b.chapter - a.chapter);
     } catch (err) {
         return [];
+    }
+}
+
+// ─── Library Storage ───────────────────────────────────────────────
+
+/**
+ * Save an uploaded book file to the permanent Library.
+ * @param {File} file - The raw File object (EPUB or PDF)
+ * @param {string} bookKey - Unique identifier (usually the title or filename)
+ * @param {Object} metadata - Optional additional data
+ */
+export async function saveBookToLibrary(file, bookKey, metadata = {}) {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_BOOKS, 'readwrite');
+        tx.objectStore(STORE_BOOKS).put({
+            bookKey,
+            file, // Files are natively cloneable by IndexedDB
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            metadata,
+            addedAt: Date.now()
+        });
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        console.log(`[Library] Saved book "${bookKey}".`);
+    } catch (err) {
+        console.warn('[Library] Failed to save book:', err);
+    }
+}
+
+/**
+ * Load all books saved in the Library.
+ * @returns {Array} List of book objects containing the raw `file` Blobs.
+ */
+export async function loadAllBooksFromLibrary() {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_BOOKS, 'readonly');
+        const all = await new Promise((res, rej) => {
+            const req = tx.objectStore(STORE_BOOKS).getAll();
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.target.error);
+        });
+        return all.sort((a, b) => b.addedAt - a.addedAt);
+    } catch (err) {
+        console.warn('[Library] Failed to load books:', err);
+        return [];
+    }
+}
+
+/**
+ * Delete a book from the Library.
+ * @param {string} bookKey 
+ */
+export async function deleteBookFromLibrary(bookKey) {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_BOOKS, 'readwrite');
+        tx.objectStore(STORE_BOOKS).delete(bookKey);
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        console.log(`[Library] Deleted book "${bookKey}".`);
+    } catch (err) {
+        console.warn('[Library] Failed to delete book:', err);
+    }
+}
+
+/**
+ * Update the reading progress metadata for a specific book.
+ * @param {string} bookKey 
+ * @param {Object} progress - { page, epubcfi, chapterIndex, chapterLabel }
+ */
+export async function updateBookProgress(bookKey, progress) {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_BOOKS, 'readwrite');
+        const store = tx.objectStore(STORE_BOOKS);
+
+        const book = await new Promise((res, rej) => {
+            const req = store.get(bookKey);
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.target.error);
+        });
+
+        if (book) {
+            book.metadata = { ...book.metadata, progress };
+            store.put(book);
+            await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        }
+    } catch (err) {
+        console.warn('[Library] Failed to update progress:', err);
     }
 }

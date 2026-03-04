@@ -1,3 +1,5 @@
+import { fetchWithRetry } from './fetchWithRetry.js';
+
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 
 /**
@@ -17,7 +19,7 @@ export async function fetchClaudeStream(apiKey, systemPrompt, contextChunks = []
     }
 
     try {
-        const response = await fetch(CLAUDE_API_URL, {
+        const response = await fetchWithRetry(CLAUDE_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
