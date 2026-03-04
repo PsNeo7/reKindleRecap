@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import './App.css'
 import SettingsModal from './components/SettingsModal.jsx'
 import RecapOverlay from './components/Recap/RecapOverlay.jsx'
 import VersionPrompt from './components/VersionPrompt.jsx'
@@ -15,7 +16,7 @@ import { parseEpubFile } from './recap-core/parsing/epub.js'
 import { parsePdfFile } from './recap-core/parsing/pdf.js'
 import { retrieveSafeContext } from './recap-core/rag/retrieve.js'
 import { streamRecap } from './recap-core/ProviderRouter.js'
-import { useEffect } from 'react'
+
 
 const getCoverGradient = (title) => {
   const colors = [
@@ -239,45 +240,42 @@ function App() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className={`app-container ${file ? 'reader-active' : ''}`}>
+      <header className="app-header" style={{
+        padding: file ? '12px 20px' : undefined,
+        marginBottom: file ? '0' : undefined
+      }}>
+        <h1 className="app-logo">
           <Sparkles size={24} style={{ color: 'var(--accent-color)' }} /> Rekindle
         </h1>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div className="header-actions">
           {file && (
             <button
               className="btn-primary"
               onClick={() => setIsRecapOpen(true)}
               disabled={isVectorLoading || isIngesting}
-              style={{ display: 'flex', gap: '8px', alignItems: 'center', opacity: (isVectorLoading || isIngesting) ? 0.6 : 1, cursor: (isVectorLoading || isIngesting) ? 'not-allowed' : 'pointer' }}
             >
-              <Sparkles size={18} /> {isVectorLoading ? 'Loading Context...' : 'Get Recap'}
+              <Sparkles size={18} />
+              <span className="hide-mobile">
+                {isVectorLoading ? 'Loading Context...' : 'Get Recap'}
+              </span>
             </button>
           )}
           <button
             onClick={toggleTheme}
+            className="btn-secondary"
+            style={{ padding: '8px', minWidth: '44px' }}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            style={{
-              background: 'none',
-              border: '1px solid var(--surface-hover)',
-              borderRadius: '8px',
-              padding: '8px',
-              color: 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-            }}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="btn-secondary" onClick={() => setIsSettingsOpen(true)} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <Settings size={18} /> Settings
+          <button className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
+            <Settings size={18} /> <span className="hide-mobile">Settings</span>
           </button>
         </div>
       </header>
 
-      <main className="glass-panel" style={{ flex: 1, padding: '2.5rem', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+      <main className={`glass-panel main-content ${file ? 'reader-active' : ''}`}>
         {!file ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Upload a Book</h2>
@@ -304,7 +302,7 @@ function App() {
                 <h3 style={{ marginBottom: '1.5rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', fontWeight: 600 }}>
                   Your Library
                 </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', maxHeight: '500px', overflowY: 'auto', paddingRight: '12px' }}>
+                <div className="library-grid">
                   {library.map(book => {
                     let titleStr = book.name.replace(/\.[^/.]+$/, ""); // remove extension
                     // Robust title cleaning for presentation
@@ -332,26 +330,7 @@ function App() {
                     };
 
                     return (
-                      <div key={book.bookKey} style={{
-                        display: 'flex', flexDirection: 'column',
-                        background: 'rgba(255,255,255,0.02)', border: '1px solid var(--surface-hover)',
-                        borderRadius: '16px', overflow: 'hidden', transition: 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
-                        cursor: 'pointer', position: 'relative'
-                      }}
-                        onMouseEnter={e => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                          e.currentTarget.style.transform = 'translateY(-4px)';
-                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
-                          e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25)';
-                        }}
-                        onMouseLeave={e => {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.borderColor = 'var(--surface-hover)';
-                          e.currentTarget.style.boxShadow = 'none';
-                        }}
-                        onClick={() => handleSelectBook(book)}
-                      >
+                      <div key={book.bookKey} className="book-card" onClick={() => handleSelectBook(book)}>
                         {/* Top: Cover and Metadata */}
                         <div style={{ display: 'flex', padding: '16px', gap: '14px', alignItems: 'center' }}>
                           <div style={{
@@ -405,24 +384,25 @@ function App() {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div className="reader-header">
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>{file.name}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                   {fileType === 'pdf' ? `Page ${currentProgress}` : (chapterLabel || 'Reading EPUB')}
                 </p>
               </div>
-              <button className="btn-secondary" onClick={handleCloseBook} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+              <button className="btn-secondary" onClick={handleCloseBook} style={{ fontSize: '0.8rem', padding: '6px 12px', minHeight: '36px' }}>
                 Close Book
               </button>
             </div>
 
-            <div style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="reader-container">
               {fileType === 'epub' && (
                 <EpubViewer
                   file={file}
                   initialLocation={currentEpubLocation}
                   onLocationChange={handleLocationChange}
+                  theme={theme}
                 />
               )}
               {fileType === 'pdf' && (

@@ -1,0 +1,210 @@
+/* SettingsModal.css */
+
+.settings-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+.settings-modal {
+    width: 100%;
+    max-width: 500px;
+    background-color: var(--surface-color);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    animation: fadeSlideIn 0.3s ease both;
+}
+
+.settings-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--surface-hover);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--modal-header-bg);
+}
+
+.settings-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.settings-body {
+    padding: 24px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--modal-bg);
+}
+
+.settings-info-text {
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.settings-field {
+    margin-bottom: 20px;
+}
+
+.settings-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.settings-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.settings-input {
+    flex: 1;
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--surface-hover);
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.settings-input:focus {
+    border-color: var(--accent-color);
+}
+
+.settings-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.settings-select {
+    width: 100%;
+    appearance: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--surface-hover);
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.settings-select:focus {
+    border-color: var(--accent-color);
+}
+
+.settings-select-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    /* Fixed translate */
+    pointer-events: none;
+    color: var(--text-secondary);
+}
+
+.settings-test-status {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.settings-test-status.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+}
+
+.settings-test-status.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.settings-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--surface-hover);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: var(--modal-footer-bg);
+}
+
+.settings-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.settings-close-btn:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+    .settings-backdrop {
+        padding: 0;
+        align-items: flex-start;
+    }
+
+    .settings-modal {
+        width: 100% !important;
+        height: 100vh !important;
+        max-width: none !important;
+        border: none;
+        border-radius: 0;
+    }
+
+    .settings-header {
+        padding: 16px 20px;
+    }
+
+    .settings-body {
+        flex: 1;
+        padding: 20px;
+    }
+
+    .settings-input-group {
+        flex-direction: column;
+    }
+
+    .btn-secondary,
+    .btn-primary {
+        width: 100%;
+    }
+
+    .settings-footer {
+        flex-direction: column;
+        padding: 16px 20px;
+    }
+}

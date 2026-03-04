@@ -14,7 +14,7 @@ export default function PdfViewer({ file, pageNumber, onPageChange }) {
     }
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', flex: 1, overflowY: 'auto' }}>
             <Document
                 file={file}
                 onLoadSuccess={onDocumentLoadSuccess}
@@ -29,26 +29,28 @@ export default function PdfViewer({ file, pageNumber, onPageChange }) {
                     renderTextLayer={true}
                     renderAnnotationLayer={false}
                     className="pdf-page"
-                    width={Math.min(window.innerWidth * 0.8, 600)} // Responsive width constraint
+                    width={Math.min(window.innerWidth - 64, 800)} // More dynamic width
                 />
             </Document>
 
             {numPages && (
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ margin: '1rem 0', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <button
                         className="btn-secondary"
                         disabled={pageNumber <= 1}
                         onClick={() => onPageChange(pageNumber - 1)}
+                        style={{ minWidth: '100px' }}
                     >
                         Previous
                     </button>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                        Page {pageNumber} of {numPages}
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>
+                        {pageNumber} / {numPages}
                     </span>
                     <button
                         className="btn-secondary"
                         disabled={pageNumber >= numPages}
                         onClick={() => onPageChange(pageNumber + 1)}
+                        style={{ minWidth: '100px' }}
                     >
                         Next
                     </button>

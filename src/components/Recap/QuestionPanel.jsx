@@ -22,13 +22,11 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
         const question = input.trim();
         if (!question || isLoading) return;
 
-        // Add user message
         setMessages(prev => [...prev, { role: 'user', text: question }]);
         setInput('');
         setIsLoading(true);
 
         try {
-            // Determine RAG provider (same fallback logic as RecapOverlay)
             let ragProvider = provider;
             let ragKey = activeKey;
 
@@ -40,12 +38,10 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
                 else throw new Error('Need an OpenAI or Gemini key for RAG.');
             }
 
-            // Retrieve context relevant to the question
             const chunks = await retrieveSafeContext(
                 ragProvider, ragKey, question, currentChapter, 4
             );
 
-            // Build system prompt with the question embedded
             const progressText = fileType === 'pdf' ? `Page ${currentChapter}` : `Chapter ${currentChapter}`;
             const basePrompt = generateQuestionPrompt(
                 bookKey || "Unknown Book",
@@ -54,9 +50,7 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
             );
             const fullPrompt = `${basePrompt}\n\nThe reader asks: "${question}"`;
 
-            // Stream the answer
             let answer = '';
-            // Add a placeholder assistant message
             setMessages(prev => [...prev, { role: 'assistant', text: '' }]);
 
             await streamRecap(
@@ -79,7 +73,6 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
             }]);
         } finally {
             setIsLoading(false);
-            // Scroll to bottom
             setTimeout(() => {
                 scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
             }, 50);
@@ -96,30 +89,22 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
     const renderMessageText = (text) => {
         if (!text) return null;
 
-        // Split by a regex that captures **bold**, *italic*, and `code`
         const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`)/g);
 
         return parts.map((part, i) => {
             if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={i} style={{ fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
+                return <strong key={i} style={{ fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
             }
             if (part.startsWith('*') && part.endsWith('*')) {
-                return <em key={i}>{part.slice(1, -1)}</em>;
+                return <em key={i} style={{ fontStyle: 'italic' }}>{part.slice(1, -1)}</em>;
             }
             if (part.startsWith('`') && part.endsWith('`')) {
                 return (
-                    <code key={i} style={{
-                        background: 'rgba(0,0,0,0.2)',
-                        padding: '2px 4px',
-                        borderRadius: '4px',
-                        fontFamily: 'monospace',
-                        color: 'var(--accent-color)'
-                    }}>
+                    <code key={i} className="inline-code">
                         {part.slice(1, -1)}
                     </code>
                 );
             }
-            // Preserve newlines for regular text
             return part.split('\n').map((line, j) => (
                 <React.Fragment key={`${i}-${j}`}>
                     {j > 0 && <br />}
@@ -130,28 +115,14 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            {/* Messages area */}
-            <div ref={scrollRef} style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '20px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-            }}>
+        <div className="chat-container">
+            <div ref={scrollRef} className="chat-messages">
                 {messages.length === 0 && (
-                    <div style={{
-                        textAlign: 'center',
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.9rem',
-                        marginTop: '40px',
-                        opacity: 0.7,
-                    }}>
-                        <p style={{ marginBottom: '8px', fontSize: '1.1rem' }}>💬</p>
-                        <p>Ask anything about the book so far.</p>
-                        <p style={{ fontSize: '0.8rem', marginTop: '4px' }}>
-                            e.g. "Who is Duncan Idaho?" or "Why did they go to Arrakis?"
+                    <div className="chat-empty">
+                        <p style={{ marginBottom: '12px', fontSize: '1.5rem' }}>💬</p>
+                        <p style={{ fontWeight: 500 }}>The Oracle is listening.</p>
+                        <p style={{ fontSize: '0.8rem', marginTop: '8px', maxWidth: '240px', margin: '8px auto' }}>
+                            Ask anything about characters or plot points encountered so far.
                         </p>
                     </div>
                 )}
@@ -159,83 +130,34 @@ export default function QuestionPanel({ currentChapter, fileType = 'epub', bookK
                 {messages.map((msg, i) => (
                     <div
                         key={i}
-                        style={{
-                            alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                            maxWidth: '85%',
-                            animation: 'fadeSlideIn 0.2s ease both',
-                        }}
+                        className={`chat-bubble-container ${msg.role}`}
                     >
-                        <div style={{
-                            padding: '12px 16px',
-                            borderRadius: msg.role === 'user' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                            background: msg.role === 'user'
-                                ? 'var(--accent-color)'
-                                : msg.isError
-                                    ? 'rgba(239,68,68,0.1)'
-                                    : 'rgba(255,255,255,0.06)',
-                            color: msg.role === 'user' ? '#fff' : msg.isError ? 'var(--danger-color)' : 'var(--text-primary)',
-                            fontSize: '0.92rem',
-                            lineHeight: 1.6,
-                            border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                        }}>
-                            {msg.text ? renderMessageText(msg.text) : (isLoading ? '...' : '')}
+                        <div className={`chat-bubble ${msg.role} ${msg.isError ? 'error' : ''}`}>
+                            {msg.text ? renderMessageText(msg.text) : (isLoading ? <span className="typing-glow-active">...</span> : '')}
                         </div>
-                        <div style={{
-                            fontSize: '0.68rem',
-                            color: 'var(--text-secondary)',
-                            marginTop: '4px',
-                            textAlign: msg.role === 'user' ? 'right' : 'left',
-                            opacity: 0.5,
-                        }}>
-                            {msg.role === 'user' ? 'You' : 'AI'}
+                        <div className="chat-meta">
+                            {msg.role === 'user' ? 'Reader' : 'Oracle'}
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Input area */}
-            <div style={{
-                padding: '14px 20px',
-                borderTop: '1px solid var(--surface-hover)',
-                display: 'flex',
-                gap: '10px',
-                background: 'rgba(15, 23, 42, 0.4)',
-            }}>
+            <div className="chat-input-area">
                 <input
+                    className="chat-input"
                     type="text"
                     value={input}
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Ask about the book..."
                     disabled={isLoading}
-                    style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        background: 'rgba(255,255,255,0.05)',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.9rem',
-                        fontFamily: 'var(--font-family)',
-                        outline: 'none',
-                    }}
                 />
                 <button
+                    className="chat-send-btn"
                     onClick={handleAsk}
                     disabled={isLoading || !input.trim()}
-                    style={{
-                        padding: '10px 16px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: isLoading || !input.trim() ? 'rgba(99,102,241,0.3)' : 'var(--accent-color)',
-                        color: '#fff',
-                        cursor: isLoading ? 'not-allowed' : 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        transition: 'background 0.15s',
-                    }}
                 >
-                    <Send size={16} />
+                    <Send size={18} />
                 </button>
             </div>
         </div>

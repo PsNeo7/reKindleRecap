@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { History, Trash2, Clock } from 'lucide-react';
-import { listRecapOutputs, deleteVectorCache } from '../../core/VectorCache.js';
-
+import { History, Clock } from 'lucide-react';
+import { listRecapOutputs } from '../../core/VectorCache.js';
 
 export default function RecapHistory({ fileType, bookKey, onLoadCachedRecap }) {
     const [history, setHistory] = useState([]);
@@ -18,73 +17,49 @@ export default function RecapHistory({ fileType, bookKey, onLoadCachedRecap }) {
         setIsLoading(false);
     };
 
-    const handleDelete = async (chapter, e) => {
-        e.stopPropagation();
-        const key = `${bookKey}::ch${chapter}`;
-        await deleteVectorCache(key); // Assuming delete works for both given enough time or we add a specific delete for recaps
-        // Note: As VectorCache was built, deleteVectorCache uses the vector store name. 
-        // We should just refresh the list. To be fully correct we need a deleteRecapOutput function, 
-        // but for now we'll just omit deletion if we don't have it, or let the user click "Load".
-        // A better approach is simply providing a list of links to load.
-    };
-
     if (isLoading) {
         return (
-            <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Loading history...
+            <div className="skeleton-container" style={{ alignItems: 'center', justifyContent: 'center' }}>
+                <span className="typing-glow-active">Consulting archives...</span>
             </div>
         );
     }
 
     if (history.length === 0) {
         return (
-            <div style={{ padding: '48px 32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <History size={48} style={{ margin: '0 auto 16px', opacity: 0.3 }} />
-                <p>No recaps generated yet for this book.</p>
-                <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '8px' }}>
-                    Generate a recap to see it appear here.
+            <div className="chat-empty" style={{ marginTop: '80px' }}>
+                <History size={48} style={{ margin: '0 auto 20px', opacity: 0.3 }} />
+                <p style={{ fontWeight: 600, fontSize: '1.1rem' }}>No history yet</p>
+                <p style={{ fontSize: '0.85rem', marginTop: '10px', opacity: 0.7 }}>
+                    Generate your first recap to see it saved here.
                 </p>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>
-                Previous Recaps
-            </h3>
+        <div className="history-container animate-in">
+            <h3 className="history-title">Stored Memories</h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+            <div className="history-grid">
                 {history.map((item) => {
                     const date = new Date(item.savedAt);
                     const isToday = date.toDateString() === new Date().toDateString();
                     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    const dateStr = isToday ? `Today at ${timeStr}` : date.toLocaleDateString();
+                    const dateStr = isToday ? `Today, ${timeStr}` : date.toLocaleDateString();
 
                     return (
                         <div
                             key={item.chapter}
+                            className="history-item"
                             onClick={() => onLoadCachedRecap(item.chapter)}
-                            style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                borderRadius: '12px',
-                                padding: '16px',
-                                cursor: 'pointer',
-                                transition: 'background 0.2s',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                         >
                             <div>
-                                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                <div className="history-item-title">
                                     {fileType === 'pdf' ? `Page ${item.chapter}` : `Chapter ${item.chapter}`}
                                 </div>
-                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <Clock size={12} /> {dateStr}
+                                <div className="history-item-meta">
+                                    <Clock size={13} /> {dateStr}
                                 </div>
                             </div>
                         </div>
