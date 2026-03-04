@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "Rekindle | AI-Powered Kindle Companion",
+  "version": "1.0.0",
+  "description": "Smart, spoiler-free book recaps for Kindle Cloud Reader.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://read.amazon.com/*",
+    "https://read.amazon.in/*",
+    "https://read.amazon.co.uk/*",
+    "https://read.amazon.de/*"
+  ],
+  "action": {
+    "default_popup": "index.html"
+  },
+  "background": {
+    "service_worker": "src/extension/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://read.amazon.com/*",
+        "https://read.amazon.in/*",
+        "https://read.amazon.co.uk/*",
+        "https://read.amazon.de/*"
+      ],
+      "js": ["src/extension/content.js"],
+      "css": ["src/extension/content.css"],
+      "all_frames": true
+    }
+  ],
+  "icons": {
+    "16": "public/favicon.png",
+    "48": "public/favicon.png",
+    "128": "public/favicon.png"
+  }
+}
