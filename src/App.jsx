@@ -292,7 +292,7 @@ function App() {
 
       <main className={`glass-panel main-content ${file ? 'reader-active' : ''}`}>
         {!file ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', overflowY: 'auto' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '3rem', paddingBottom: '3rem', textAlign: 'center', overflowY: 'auto' }}>
             <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Upload a Book</h2>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
               Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers.
