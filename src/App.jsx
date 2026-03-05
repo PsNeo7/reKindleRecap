@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import './App.css'
 import SettingsModal from './components/SettingsModal.jsx'
+import ProcessingNotice from './components/ProcessingNotice/ProcessingNotice.jsx'
 import RecapOverlay from './components/Recap/RecapOverlay.jsx'
 import VersionPrompt from './components/VersionPrompt.jsx'
 import EpubViewer from './components/Reader/EpubViewer.jsx'
@@ -64,6 +65,7 @@ function App() {
   const [library, setLibrary] = useState([])
   const [isIngesting, setIsIngesting] = useState(false)
   const [isVectorLoading, setIsVectorLoading] = useState(false) // Non-blocking loading state for library cache hit swaps
+  const [showProcessingNotice, setShowProcessingNotice] = useState(false)
   const [ingestStatus, setIngestStatus] = useState('')
 
   const { theme, toggleTheme } = useTheme()
@@ -250,16 +252,29 @@ function App() {
         </h1>
         <div className="header-actions">
           {file && (
-            <button
-              className="btn-primary"
-              onClick={() => setIsRecapOpen(true)}
-              disabled={isVectorLoading || isIngesting}
-            >
-              <Sparkles size={18} />
-              <span className="hide-mobile">
-                {isVectorLoading ? 'Loading Context...' : 'Get Recap'}
-              </span>
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  if (isVectorLoading || isIngesting) {
+                    setShowProcessingNotice(true);
+                  } else {
+                    setIsRecapOpen(true);
+                  }
+                }}
+              >
+                <Sparkles size={18} className={isVectorLoading || isIngesting ? 'processing-notice-icon' : ''} />
+                <span className="hide-mobile">
+                  {isVectorLoading || isIngesting ? 'Loading Context...' : 'Get Recap'}
+                </span>
+              </button>
+              {showProcessingNotice && (
+                <ProcessingNotice
+                  isOpen={showProcessingNotice}
+                  onClose={() => setShowProcessingNotice(false)}
+                />
+              )}
+            </div>
           )}
           <button
             onClick={toggleTheme}

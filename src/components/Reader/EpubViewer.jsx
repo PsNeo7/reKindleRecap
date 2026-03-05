@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ReactReader, ReactReaderStyle } from 'react-reader';
 
 export default function EpubViewer({ file, initialLocation, onLocationChange, theme = 'dark' }) {
-    const [url, setUrl] = useState(null);
+    const [buffer, setBuffer] = useState(null);
     const [location, setLocation] = useState(initialLocation || null);
     const [chapterLabel, setChapterLabel] = useState('');
     const renditionRef = useRef(null);
@@ -26,21 +26,20 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
         }
     };
 
-    // Create a Blob URL from the file object.
+    // Convert local files to an ArrayBuffer.
+    // Passing Blob URLs directly can fail in the epub.js iframe due to sandbox restrictions.
     useEffect(() => {
         if (!file) return;
+        setBuffer(null);
+        setLocation(initialLocation || null);
 
-        let blobUrl;
         if (file instanceof File || file instanceof Blob) {
-            blobUrl = URL.createObjectURL(file);
-        } else if (file instanceof ArrayBuffer) {
-            const blob = new Blob([file], { type: 'application/epub+zip' });
-            blobUrl = URL.createObjectURL(blob);
-        }
-
-        if (blobUrl) {
-            setUrl(blobUrl);
-            return () => URL.revokeObjectURL(blobUrl);
+            const reader = new FileReader();
+            reader.onload = (e) => setBuffer(e.target.result);
+            reader.readAsArrayBuffer(file);
+        } else {
+            // Already an ArrayBuffer or other raw format
+            setBuffer(file);
         }
     }, [file]);
 
@@ -80,11 +79,14 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
             renditionRef.current.themes.default({
                 'body': {
                     'font-family': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important",
-                    'padding': '20px 30px !important',
+                    'padding': '20px 4% !important',
                     'color': `${textColor} !important`,
                     'background': `${bgColor} !important`,
-                    'font-size': '1.15rem !important',
-                    'line-height': '1.7 !important'
+                    'font-size': '1.05rem !important',
+                    'line-height': '1.6 !important',
+                    'max-width': '100% !important',
+                    'overflow-wrap': 'break-word !important',
+                    'word-wrap': 'break-word !important'
                 },
                 'p': { 'color': `${textColor} !important` },
                 'h1, h2, h3, h4, h5, h6': { 'color': `${textColor} !important` }
@@ -92,7 +94,7 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
         }
     }, [theme, renditionRef.current]);
 
-    if (!url) {
+    if (!buffer) {
         return (
             <div style={{ color: 'var(--text-secondary)', padding: '2rem', textAlign: 'center' }}>
                 Preparing book for display...
@@ -115,7 +117,7 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
             )}
             <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
                 <ReactReader
-                    url={url}
+                    url={buffer}
                     location={location}
                     locationChanged={handleLocationChange}
                     styles={ownStyles}
@@ -131,9 +133,14 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                         rendition.themes.default({
                             'body': {
                                 'font-family': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important",
-                                'padding': '20px 30px !important',
+                                'padding': '20px 4% !important',
                                 'color': `${textColor} !important`,
-                                'background': `${bgColor} !important`
+                                'background': `${bgColor} !important`,
+                                'font-size': '1.05rem !important',
+                                'line-height': '1.6 !important',
+                                'max-width': '100% !important',
+                                'overflow-wrap': 'break-word !important',
+                                'word-wrap': 'break-word !important'
                             },
                             'p': { 'color': `${textColor} !important` },
                             'h1, h2, h3, h4, h5, h6': { 'color': `${textColor} !important` }
@@ -141,7 +148,6 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                     }}
                     tocChanged={(toc) => { tocRef.current = toc; }}
                     epubInitOptions={{
-                        openAs: 'epub',
                         sandbox: "allow-scripts allow-same-origin allow-popups"
                     }}
                 />
