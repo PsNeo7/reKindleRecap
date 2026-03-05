@@ -292,31 +292,57 @@ function App() {
 
       <main className={`glass-panel main-content ${file ? 'reader-active' : ''}`}>
         {!file ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: '3rem', paddingBottom: '3rem', textAlign: 'center', overflowY: 'auto' }}>
-            <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Upload a Book</h2>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
-              Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers.
-            </p>
-            {isIngesting ? (
-              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                <div className="skeleton" style={{ width: '200px', height: '6px', borderRadius: '4px' }} />
-                <p style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>{ingestStatus || 'Processing book...'}</p>
-              </div>
-            ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: library?.length > 0 ? '1.5rem' : '3rem', paddingBottom: '3rem', textAlign: 'center', overflowY: 'auto' }}>
+
+            {/* Conditional Upload Hero / Compact Header */}
+            {!(library && library.length > 0) ? (
+              // Empty State - Large Hero
               <>
-                <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px' }}>
-                  Select EPUB / PDF
-                  <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
-                </label>
+                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Upload a Book</h2>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
+                  Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers.
+                </p>
+                {isIngesting ? (
+                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div className="skeleton" style={{ width: '200px', height: '6px', borderRadius: '4px' }} />
+                    <p style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>{ingestStatus || 'Processing book...'}</p>
+                  </div>
+                ) : (
+                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px' }}>
+                    Select EPUB / PDF
+                    <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
+                  </label>
+                )}
               </>
+            ) : (
+              // Populated Library State - Compact Strip
+              <div style={{
+                display: 'flex', width: '100%', maxWidth: '850px', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem',
+                padding: '16px 24px', background: 'var(--surface)', borderRadius: '12px',
+                border: '1px solid var(--surface-hover)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 600 }}>Rekindle Library</h2>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.85rem' }}>Upload a new EPUB or PDF to start reading</p>
+                </div>
+                {isIngesting ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="skeleton" style={{ width: '100px', height: '6px', borderRadius: '4px' }} />
+                    <span style={{ color: 'var(--accent-color)', fontSize: '0.85rem', fontWeight: 500 }}>{ingestStatus || 'Processing...'}</span>
+                  </div>
+                ) : (
+                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '8px 20px', fontSize: '0.9rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}>
+                    Add Book
+                    <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
+                  </label>
+                )}
+              </div>
             )}
 
             {/* Application Library view */}
             {!isIngesting && library && library.length > 0 && (
-              <div style={{ marginTop: '3rem', width: '100%', maxWidth: '850px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
-                <h3 style={{ marginBottom: '1.5rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--surface-hover)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.2rem', fontWeight: 600 }}>
-                  Your Library
-                </h3>
+              <div style={{ width: '100%', maxWidth: '850px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
                 <div className="library-grid">
                   {library.map(book => {
                     let titleStr = book.name.replace(/\.[^/.]+$/, ""); // remove extension
