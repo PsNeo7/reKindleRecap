@@ -78,13 +78,14 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
 
             renditionRef.current.themes.default({
                 'body': {
-                    'font-family': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important",
-                    'padding': '20px 4% !important',
+                    'font-family': "var(--font-serif) !important",
+                    'padding': '40px 5% !important',
                     'color': `${textColor} !important`,
                     'background': `${bgColor} !important`,
-                    'font-size': '1.05rem !important',
-                    'line-height': '1.6 !important',
-                    'max-width': '100% !important',
+                    'font-size': '1.1rem !important',
+                    'line-height': '1.7 !important',
+                    'max-width': '800px !important',
+                    'margin': '0 auto !important',
                     'overflow-wrap': 'break-word !important',
                     'word-wrap': 'break-word !important'
                 },
@@ -132,13 +133,14 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                         const bgColor = theme === 'dark' ? '#0f172a' : '#ffffff';
                         rendition.themes.default({
                             'body': {
-                                'font-family': "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important",
-                                'padding': '20px 4% !important',
+                                'font-family': "var(--font-serif) !important",
+                                'padding': '40px 5% !important',
                                 'color': `${textColor} !important`,
                                 'background': `${bgColor} !important`,
-                                'font-size': '1.05rem !important',
-                                'line-height': '1.6 !important',
-                                'max-width': '100% !important',
+                                'font-size': '1.1rem !important',
+                                'line-height': '1.7 !important',
+                                'max-width': '800px !important',
+                                'margin': '0 auto !important',
                                 'overflow-wrap': 'break-word !important',
                                 'word-wrap': 'break-word !important'
                             },

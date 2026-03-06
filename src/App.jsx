@@ -6,7 +6,7 @@ import RecapOverlay from './components/Recap/RecapOverlay.jsx'
 import VersionPrompt from './components/VersionPrompt.jsx'
 import EpubViewer from './components/Reader/EpubViewer.jsx'
 import PdfViewer from './components/Reader/PdfViewer.jsx'
-import { Sparkles, Settings, Sun, Moon, X } from 'lucide-react'
+import { Sparkles, Settings, Sun, Moon, X, ChevronLeft } from 'lucide-react'
 import { useTheme } from './core/useTheme.js'
 import { useKeyboardShortcuts } from './core/useKeyboardShortcuts.js'
 import { useReadingSession } from './core/useReadingSession.js'
@@ -344,7 +344,7 @@ function App() {
             {!isIngesting && library && library.length > 0 && (
               <div style={{ width: '100%', maxWidth: '850px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
                 <div className="library-grid">
-                  {library.map(book => {
+                  {library.map((book, index) => {
                     let titleStr = book.name.replace(/\.[^/.]+$/, ""); // remove extension
                     // Robust title cleaning for presentation
                     titleStr = titleStr
@@ -371,7 +371,15 @@ function App() {
                     };
 
                     return (
-                      <div key={book.bookKey} className="book-card" onClick={() => handleSelectBook(book)}>
+                      <div
+                        key={book.bookKey}
+                        className="book-card"
+                        onClick={() => handleSelectBook(book)}
+                        style={{
+                          animation: 'slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards',
+                          animationDelay: `${index * 0.08}s`
+                        }}
+                      >
                         {/* Top: Cover and Metadata */}
                         <div style={{ display: 'flex', padding: '16px', gap: '14px', alignItems: 'center' }}>
                           <div style={{
@@ -425,16 +433,17 @@ function App() {
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="reader-header">
-              <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            <div className="reader-header" style={{ position: 'relative' }}>
+              <button onClick={handleCloseBook} className="btn-secondary" style={{ border: 'none', background: 'transparent', padding: '8px', gap: '4px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                <ChevronLeft size={20} /> <span className="hide-mobile">Library</span>
+              </button>
+              <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</h3>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', margin: 0, marginTop: '2px' }}>
                   {fileType === 'pdf' ? `Page ${currentProgress}` : (chapterLabel || 'Reading EPUB')}
                 </p>
               </div>
-              <button className="btn-secondary" onClick={handleCloseBook} style={{ fontSize: '0.8rem', padding: '6px 12px', minHeight: '36px' }}>
-                Close Book
-              </button>
+              <div style={{ width: '80px' }}></div> {/* Spacer for symmetry */}
             </div>
 
             <div className="reader-container">

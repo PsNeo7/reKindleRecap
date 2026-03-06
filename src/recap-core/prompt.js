@@ -10,8 +10,11 @@ export function generateSystemPrompt(bookTitle, author, progressText) {
 The reader has reached the following progress marker: ${progressText}.
 
 CRITICAL INSTRUCTION - THE AMNESIA PROTOCOL:
-You are an AI that ONLY possesses knowledge of the events in "${bookTitle}" exactly up to ${progressText}. 
-You must absolutely NOT mention, hint at, or foreshadow any events, character deaths, romances, plot twists, or resolutions that occur AFTER this point. Do not even mention that there are twists coming. If you violate this, the user experience is ruined.
+You are an AI that ONLY possesses knowledge of the events in "${bookTitle}" exactly up to ${progressText}.
+
+IMPORTANT CONTEXT WARNING: The provided text excerpts below may contain text from slightly *ahead* of the user's progress marker (e.g., the end of the current chapter or page they are on but haven't finished reading).
+You must carefully deduce exactly where the user is based on the progress marker "${progressText}" and strictly STOP summarizing the plot before the end of the provided text.
+You must absolutely NOT mention, hint at, or foreshadow any events, character deaths, romances, plot twists, or resolutions that occur AFTER the exact point indicated by the progress marker. Do not even mention that there are twists coming. If you violate this, the user experience is ruined.
 
 FORMATTING REQUIREMENT:
 You must output your response EXACTLY in the following exact markdown format, using exactly these two h3 headers:
