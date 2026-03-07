@@ -17,13 +17,31 @@ import CharacterRoster from './CharacterRoster.jsx';
 import QuestionPanel from './QuestionPanel.jsx';
 import RecapHistory from './RecapHistory.jsx';
 
-export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 'epub', bookKey }) {
+export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 'epub', bookKey, chatHistoryRef: chatHistoryRefProp }) {
     const { provider, activeKey, hasActiveKey } = useApiConfig();
     const [status, setStatus] = useState('initializing'); // initializing, streaming, complete, error
     const [errorObj, setErrorObj] = useState(null);
     const [rawMarkdown, setRawMarkdown] = useState('');
     const [activeTab, setActiveTab] = useState('plot');
     const [forceRefresh, setForceRefresh] = useState(false); // 'plot' | 'characters'
+
+    // Use the ref passed from App (survives close/reopen) or fall back to a local one.
+    const localChatHistoryRef = useRef({});
+    const chatHistoryRef = chatHistoryRefProp ?? localChatHistoryRef;
+    const safeBookKey = bookKey || 'unknown';
+    if (!chatHistoryRef.current[safeBookKey]) {
+        chatHistoryRef.current[safeBookKey] = [];
+    }
+    const [chatMessages, setChatMessages] = useState(chatHistoryRef.current[safeBookKey]);
+
+    // Keep the ref in sync whenever messages change
+    const handleSetChatMessages = (updater) => {
+        setChatMessages(prev => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            chatHistoryRef.current[safeBookKey] = next;
+            return next;
+        });
+    };
 
     const hasStarted = useRef(false);
 
@@ -166,24 +184,28 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                         <button
                             className={`recap-tab ${activeTab === 'plot' ? 'active' : ''}`}
                             onClick={() => setActiveTab('plot')}
+                            data-label="Plot"
                         >
                             <BookOpen size={15} /> <span>Plot</span>
                         </button>
                         <button
                             className={`recap-tab ${activeTab === 'characters' ? 'active' : ''}`}
                             onClick={() => setActiveTab('characters')}
+                            data-label="Characters"
                         >
                             <Users size={15} /> <span>Characters</span>
                         </button>
                         <button
                             className={`recap-tab ${activeTab === 'ask' ? 'active' : ''}`}
                             onClick={() => setActiveTab('ask')}
+                            data-label="Ask"
                         >
                             <MessageCircle size={15} /> <span>Ask</span>
                         </button>
                         <button
                             className={`recap-tab ${activeTab === 'history' ? 'active' : ''}`}
                             onClick={() => setActiveTab('history')}
+                            data-label="History"
                         >
                             <History size={15} /> <span>History</span>
                         </button>
@@ -245,6 +267,8 @@ export default function RecapOverlay({ onClose, currentChapter = 10, fileType = 
                                 currentChapter={currentChapter}
                                 fileType={fileType}
                                 bookKey={bookKey}
+                                messages={chatMessages}
+                                setMessages={handleSetChatMessages}
                             />
                         )}
 

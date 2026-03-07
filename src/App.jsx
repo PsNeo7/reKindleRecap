@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import './App.css'
 import SettingsModal from './components/SettingsModal.jsx'
 import ProcessingNotice from './components/ProcessingNotice/ProcessingNotice.jsx'
@@ -54,6 +54,9 @@ const getOneLiner = (metadata) => {
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isRecapOpen, setIsRecapOpen] = useState(false)
+
+  // Persists chat history across Recap open/close cycles, keyed by bookKey
+  const chatHistoryRef = useRef({})
 
   const [file, setFile] = useState(null)
   const [fileType, setFileType] = useState(null)
@@ -139,6 +142,9 @@ function App() {
     // Open the book instantly for reading, zero UI blocking!
     setFile(book.file)
     setFileType(book.metadata.type)
+
+    // Stamp last-opened time so the library sorts by recency of access
+    updateBookMetadata(book.bookKey, { lastOpenedAt: Date.now() }).catch(() => { })
 
     if (book.metadata.progress) {
       if (book.metadata.type === 'epub') {
@@ -518,7 +524,7 @@ function App() {
 
       <VersionPrompt />
       {isSettingsOpen && <SettingsModal uploadedFile={file} onClose={() => setIsSettingsOpen(false)} />}
-      {isRecapOpen && <RecapOverlay currentChapter={currentProgress} fileType={fileType} bookKey={bookKey} onClose={() => setIsRecapOpen(false)} />}
+      {isRecapOpen && <RecapOverlay currentChapter={currentProgress} fileType={fileType} bookKey={bookKey} onClose={() => setIsRecapOpen(false)} chatHistoryRef={chatHistoryRef} />}
     </div>
   )
 }

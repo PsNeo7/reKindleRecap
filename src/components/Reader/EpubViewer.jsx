@@ -1,6 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ReactReader, ReactReaderStyle } from 'react-reader';
 
+// Flatten a nested EPUB TOC tree into a single ordered list so that sub-items
+// (e.g. individual chapters nested under "Book One: Dune") are included in search.
+function flattenToc(items) {
+    const result = [];
+    for (const item of items) {
+        result.push(item);
+        if (item.subitems?.length) {
+            result.push(...flattenToc(item.subitems));
+        }
+    }
+    return result;
+}
+
 export default function EpubViewer({ file, initialLocation, onLocationChange, theme = 'dark' }) {
     const [buffer, setBuffer] = useState(null);
     const [location, setLocation] = useState(initialLocation || null);
@@ -121,12 +134,38 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
             const spineItem = book.spine.get(epubcfi);
             if (!spineItem) return;
 
-            const tocEntry = tocRef.current.find(
-                (item) => item.href && spineItem.href && spineItem.href.includes(item.href.split('#')[0])
+            // Flatten the full TOC tree so nested sub-items (e.g. individual chapters
+            // nested under "Book One: Dune") are included in the search.
+            const flatToc = flattenToc(tocRef.current);
+
+            // Pass 1: exact href match in the flattened TOC.
+            let tocIndex = flatToc.findIndex(
+                (item) => item.href && spineItem.href &&
+                    spineItem.href.includes(item.href.split('#')[0])
             );
 
-            const chapterIndex = spineItem.index + 1;
-            const label = tocEntry?.label?.trim() || `Chapter ${chapterIndex}`;
+            // Pass 2: no exact match — pick the last flattened entry whose spine
+            // position is ≤ the current spine index (nearest preceding chapter).
+            if (tocIndex === -1) {
+                let closestIdx = -1;
+                for (let i = 0; i < flatToc.length; i++) {
+                    const tocSpineItem = book.spine.get(flatToc[i].href);
+                    if (tocSpineItem && tocSpineItem.index <= spineItem.index) {
+                        closestIdx = i;
+                    }
+                }
+                tocIndex = closestIdx;
+            }
+
+            let chapterIndex, label;
+            if (tocIndex !== -1) {
+                chapterIndex = tocIndex + 1;
+                label = flatToc[tocIndex]?.label?.trim() || `Chapter ${chapterIndex}`;
+            } else {
+                // Truly before any TOC entry (e.g. cover page)
+                chapterIndex = spineItem.index + 1;
+                label = '';
+            }
 
             setChapterLabel(label);
             onLocationChange?.(epubcfi, chapterIndex, label);
@@ -179,17 +218,7 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                 overflow: 'hidden',
             }}
         >
-            {chapterLabel && (
-                <div style={{
-                    position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
-                    fontSize: '0.75rem', fontWeight: 600, color: '#f8fafc',
-                    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', padding: '6px 16px', borderRadius: 20,
-                    pointerEvents: 'none', maxWidth: '85%', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                    border: '1px solid rgba(255,255,255,0.1)'
-                }}>
-                    {chapterLabel}
-                </div>
-            )}
+
 
             {/* onClick intercepts all clicks to track TOC open/close state */}
             <div

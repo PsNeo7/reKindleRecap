@@ -92,18 +92,18 @@
     border-bottom: 2px solid transparent;
     background: transparent;
     color: var(--text-secondary);
-    font-weight: 400;
+    /* Always bold so weight never changes between states — prevents layout shift */
+    font-weight: 600;
     font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: color 0.2s ease, border-bottom-color 0.2s ease, background 0.2s ease;
     margin-bottom: -1px;
 }
 
 .recap-tab.active {
-    border-bottom: 2px solid var(--accent-color);
+    border-bottom-color: var(--accent-color);
     background: rgba(var(--accent-color-rgb, 99, 102, 241), 0.1);
     color: var(--accent-color);
-    font-weight: 600;
 }
 
 /* Content Area */

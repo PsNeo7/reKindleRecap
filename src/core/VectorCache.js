@@ -239,7 +239,7 @@ export async function loadAllBooksFromLibrary() {
             req.onsuccess = (e) => res(e.target.result);
             req.onerror = (e) => rej(e.target.error);
         });
-        return all.sort((a, b) => b.addedAt - a.addedAt);
+        return all.sort((a, b) => (b.metadata?.lastOpenedAt ?? b.addedAt) - (a.metadata?.lastOpenedAt ?? a.addedAt));
     } catch (err) {
         console.warn('[Library] Failed to load books:', err);
         return [];

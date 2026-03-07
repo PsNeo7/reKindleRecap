@@ -11,9 +11,8 @@ import { streamRecap } from '../../recap-core/ProviderRouter.js';
  * RAG context is retrieved, and the AI answers in a chat-style UI.
  * All answers are spoiler-safe (Amnesia Protocol).
  */
-export default function QuestionPanel({ currentChapter, fileType = 'epub', bookKey }) {
+export default function QuestionPanel({ currentChapter, fileType = 'epub', bookKey, messages, setMessages }) {
     const { provider, activeKey } = useApiConfig();
-    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const scrollRef = useRef(null);
