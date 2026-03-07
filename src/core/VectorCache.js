@@ -38,6 +38,10 @@ export function buildCacheKey(fileOrId) {
     if (fileOrId instanceof File) {
         return `${fileOrId.name}::${fileOrId.size}`;
     }
+    // Handle plain objects from IndexedDB that have name and size
+    if (fileOrId && typeof fileOrId === 'object' && fileOrId.name && fileOrId.size) {
+        return `${fileOrId.name}::${fileOrId.size}`;
+    }
     return String(fileOrId);
 }
 
@@ -247,18 +251,58 @@ export async function loadAllBooksFromLibrary() {
 }
 
 /**
- * Delete a book from the Library.
+ * Delete a book from the Library, including its vector cache and recaps.
  * @param {string} bookKey 
  */
 export async function deleteBookFromLibrary(bookKey) {
     try {
         const db = await openDb();
-        const tx = db.transaction(STORE_BOOKS, 'readwrite');
-        tx.objectStore(STORE_BOOKS).delete(bookKey);
-        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-        console.log(`[Library] Deleted book "${bookKey}".`);
+
+        // 1. Get the book first to find its cacheKey (name + size)
+        const txRead = db.transaction(STORE_BOOKS, 'readonly');
+        const book = await new Promise((res, rej) => {
+            const req = txRead.objectStore(STORE_BOOKS).get(bookKey);
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.target.error);
+        });
+
+        const txWrite = db.transaction([STORE_BOOKS, STORE_VECTORS, STORE_RECAPS], 'readwrite');
+
+        // 2. Delete the book entry
+        txWrite.objectStore(STORE_BOOKS).delete(bookKey);
+
+        // 3. Delete associated vector cache if we have the cacheKey
+        if (book) {
+            const cacheKey = buildCacheKey(book);
+            txWrite.objectStore(STORE_VECTORS).delete(cacheKey);
+            console.log(`[Library] Queued vector cache deletion for "${cacheKey}".`);
+        }
+
+        // 4. Delete all recaps for this book
+        // Note: Recaps are keyed by `${bookKey}::ch${chapter}`
+        // We'll use a cursor or just rely on the fact that we can't easily prefix-delete in IndexedDB without a cursor
+        // or an index. For now, since we have the recapKey structure, let's use a cursor on STORE_RECAPS.
+        const recapStore = txWrite.objectStore(STORE_RECAPS);
+        const recapCursorReq = recapStore.openCursor();
+        recapCursorReq.onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+                if (cursor.value.bookKey === bookKey) {
+                    cursor.delete();
+                }
+                cursor.continue();
+            }
+        };
+
+        await new Promise((res, rej) => {
+            txWrite.oncomplete = res;
+            txWrite.onerror = (e) => rej(e.target.error);
+        });
+
+        console.log(`[Library] Fully deleted book "${bookKey}" and associated data.`);
     } catch (err) {
         console.warn('[Library] Failed to delete book:', err);
+        throw err; // Re-throw to allow UI to handle error
     }
 }
 

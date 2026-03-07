@@ -42,7 +42,7 @@ const getOneLiner = (metadata) => {
   if (metadata?.miniRecap) return metadata.miniRecap.replace(/^"|"$/g, '').trim();
   const progress = metadata?.progress;
   const type = metadata?.type;
-  if (!progress) return "Start your journey into this book.";
+  if (!progress) return "Start reading to unlock AI-powered summaries of your progress.";
   if (type === 'epub') {
     const chapter = progress.chapterLabel || `Chapter ${progress.chapterIndex || 1}`;
     return `Ready to uncover what happens next in ${chapter}?`;
@@ -188,9 +188,17 @@ function App() {
   }
 
   const handleDeleteBook = async (bookKey) => {
-    if (confirm(`Remove ${bookKey} from your library?`)) {
-      await deleteBookFromLibrary(bookKey)
-      setLibrary(await loadAllBooksFromLibrary())
+    if (window.confirm(`Remove "${bookKey}" from your library? This will also delete all saved recaps.`)) {
+      try {
+        console.log(`[App] Deleting book: ${bookKey}`);
+        await deleteBookFromLibrary(bookKey);
+        const updatedLibrary = await loadAllBooksFromLibrary();
+        setLibrary(updatedLibrary);
+        console.log(`[App] Book deleted successfully: ${bookKey}`);
+      } catch (err) {
+        console.error(`[App] Failed to delete book ${bookKey}:`, err);
+        alert(`Failed to remove book: ${err.message || 'Unknown error'}`);
+      }
     }
   }
 
@@ -416,13 +424,37 @@ function App() {
                           </div>
 
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteBook(book.bookKey); }}
-                            style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', padding: '4px', opacity: 0.4, transition: 'opacity 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                            onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              console.log("[App] Remove button clicked for:", book.bookKey);
+                              handleDeleteBook(book.bookKey);
+                            }}
+                            style={{
+                              alignSelf: 'flex-start',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: 'none',
+                              color: 'var(--danger-color)',
+                              cursor: 'pointer',
+                              padding: '8px',
+                              borderRadius: '50%',
+                              opacity: 0.8,
+                              transition: 'all 0.2s',
+                              zIndex: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.opacity = 1;
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.opacity = 0.8;
+                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                            }}
                             title="Remove book from library"
                           >
-                            <X size={16} />
+                            <X size={18} strokeWidth={2.5} />
                           </button>
                         </div>
 
