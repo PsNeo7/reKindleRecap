@@ -198,6 +198,35 @@ export async function listRecapOutputs(bookKey) {
     }
 }
 
+/**
+ * Delete all cached recaps for a given book.
+ * @param {string} bookKey
+ */
+export async function deleteAllRecapsForBook(bookKey) {
+    try {
+        const db = await openDb();
+        const tx = db.transaction(STORE_RECAPS, 'readwrite');
+        const store = tx.objectStore(STORE_RECAPS);
+
+        // Standard approach: get all and delete matching
+        const all = await new Promise((res, rej) => {
+            const req = store.getAll();
+            req.onsuccess = (e) => res(e.target.result);
+            req.onerror = (e) => rej(e.target.error);
+        });
+
+        const targets = all.filter(e => e.bookKey === bookKey);
+        for (const t of targets) {
+            store.delete(t.recapKey);
+        }
+
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+        console.log(`[RecapCache] Deleted ${targets.length} recaps for "${bookKey}".`);
+    } catch (err) {
+        console.warn('[RecapCache] Failed to delete recaps:', err);
+    }
+}
+
 // ─── Library Storage ───────────────────────────────────────────────
 
 /**

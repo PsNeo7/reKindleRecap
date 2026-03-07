@@ -6,12 +6,12 @@ import RecapOverlay from './components/Recap/RecapOverlay.jsx'
 import VersionPrompt from './components/VersionPrompt.jsx'
 import EpubViewer from './components/Reader/EpubViewer.jsx'
 import PdfViewer from './components/Reader/PdfViewer.jsx'
-import { Sparkles, Settings, Sun, Moon, X, ChevronLeft } from 'lucide-react'
+import { Sparkles, Settings, Sun, Moon, X, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { useTheme } from './core/useTheme.js'
 import { useKeyboardShortcuts } from './core/useKeyboardShortcuts.js'
 import { useReadingSession } from './core/useReadingSession.js'
 import { useApiConfig } from './core/useApiConfig.js'
-import { loadAllBooksFromLibrary, saveBookToLibrary, deleteBookFromLibrary, updateBookProgress, updateBookMetadata } from './core/VectorCache.js'
+import { loadAllBooksFromLibrary, saveBookToLibrary, deleteBookFromLibrary, updateBookProgress, updateBookMetadata, deleteVectorCache, deleteAllRecapsForBook } from './core/VectorCache.js'
 import { processBookIngestion } from './core/ingestionWorkflow.js'
 import { parseEpubFile } from './recap-core/parsing/epub.js'
 import { parsePdfFile } from './recap-core/parsing/pdf.js'
@@ -50,6 +50,14 @@ const getOneLiner = (metadata) => {
   return `Pick up right where you left off on Page ${progress.page || 1}.`;
 };
 
+const BackgroundGlows = () => (
+  <div className="bg-glow-container">
+    <div className="bg-glow-blob blob-purple" />
+    <div className="bg-glow-blob blob-blue" />
+    <div className="bg-glow-blob blob-red" />
+  </div>
+);
+
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -60,6 +68,7 @@ function App() {
 
   const [file, setFile] = useState(null)
   const [fileType, setFileType] = useState(null)
+  const [bookToDelete, setBookToDelete] = useState(null)
 
   const [currentProgress, setCurrentProgress] = useState(1)
   const [chapterLabel, setChapterLabel] = useState('')
@@ -81,6 +90,16 @@ function App() {
   // Reading session awareness
   const bookKey = file ? file.name : null
   const { isReturning, lastChapter, updateChapter, dismissReturn } = useReadingSession(bookKey)
+
+  // Manage body scroll lock for Recap overlay
+  useEffect(() => {
+    if (isRecapOpen) {
+      document.body.classList.add('antigravity-scroll-lock');
+    } else {
+      document.body.classList.remove('antigravity-scroll-lock');
+    }
+    return () => document.body.classList.remove('antigravity-scroll-lock');
+  }, [isRecapOpen]);
 
   // Keyboard shortcuts
   const isModalOpen = isSettingsOpen || isRecapOpen
@@ -187,11 +206,28 @@ function App() {
     }
   }
 
-  const handleDeleteBook = async (bookKey) => {
-    if (confirm(`Remove ${bookKey} from your library?`)) {
-      await deleteBookFromLibrary(bookKey)
-      setLibrary(await loadAllBooksFromLibrary())
-    }
+  const confirmDeleteBook = async () => {
+    if (!bookToDelete) return;
+    const bKey = bookToDelete.bookKey;
+    const fileName = bookToDelete.name;
+    const fileSize = bookToDelete.size;
+
+    // 1. Delete the book file from library
+    await deleteBookFromLibrary(bKey)
+
+    // 2. Delete all chapter recaps for this book
+    await deleteAllRecapsForBook(bKey);
+
+    // 3. Delete the vector cache (key is filename::size)
+    const cacheKey = `${fileName}::${fileSize}`;
+    await deleteVectorCache(cacheKey);
+
+    setLibrary(await loadAllBooksFromLibrary())
+    setBookToDelete(null)
+  }
+
+  const cancelDeleteBook = () => {
+    setBookToDelete(null)
   }
 
   const handleLocationChange = (epubcfi, chapterIndex, label) => {
@@ -252,12 +288,23 @@ function App() {
 
   return (
     <div className={`app-container ${file ? 'reader-active' : ''}`}>
-      <header className="app-header" style={{
-        padding: file ? '12px 20px' : undefined,
-        marginBottom: file ? '0' : undefined
+      {!file && <BackgroundGlows />}
+
+      <header className={`app-header ${file ? 'reader-header-active' : 'glass-premium'}`} style={{
+        padding: file ? '16px 24px' : '24px 40px',
+        marginBottom: file ? '0' : '4rem',
+        borderBottom: file ? '1px solid rgba(255,255,255,0.1)' : 'none',
+        borderRadius: file ? '0' : '0 0 40px 40px',
+        boxShadow: file ? 'none' : undefined,
+        width: '100%',
+        maxWidth: file ? '100%' : '1100px',
+        margin: file ? '0' : '0 auto 4rem',
+        minHeight: file ? 'auto' : '100px',
+        display: 'flex',
+        alignItems: 'center'
       }}>
-        <h1 className="app-logo">
-          <Sparkles size={24} style={{ color: 'var(--accent-color)' }} /> Rekindle
+        <h1 className="app-logo" style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em' }}>
+          <Sparkles size={28} style={{ color: 'var(--accent-color)', filter: 'drop-shadow(0 0 8px rgba(99, 102, 241, 0.4))' }} /> Rekindle
         </h1>
         <div className="header-actions">
           {file && (
@@ -288,68 +335,88 @@ function App() {
           <button
             onClick={toggleTheme}
             className="btn-secondary"
-            style={{ padding: '8px', minWidth: '44px' }}
+            style={{
+              padding: '8px',
+              minWidth: '44px',
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
+          <button
+            className="btn-secondary"
+            onClick={() => setIsSettingsOpen(true)}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)'
+            }}
+          >
             <Settings size={18} /> <span className="hide-mobile">Settings</span>
           </button>
         </div>
       </header>
 
-      <main className={`glass-panel main-content ${file ? 'reader-active' : ''}`}>
+      <main className={`${file ? 'reader-main-active' : 'glass-premium'}`} style={{
+        width: '100%',
+        maxWidth: file ? '100%' : '1100px',
+        margin: '0 auto',
+        padding: file ? '0' : '0 3rem 6rem',
+        borderRadius: file ? '0' : undefined,
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
         {!file ? (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', paddingTop: library?.length > 0 ? '1.5rem' : '3rem', paddingBottom: '3rem', textAlign: 'center', overflowY: 'auto' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
 
             {/* Conditional Upload Hero / Compact Header */}
             {!(library && library.length > 0) ? (
               // Empty State - Large Hero
-              <>
-                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>
-                  {isIngesting ? "Analyzing Book..." : "Upload a Book"}
+              <div className="glass-premium" style={{ padding: '80px 60px', maxWidth: '700px', margin: '6rem auto', textAlign: 'center' }}>
+                <h2 style={{ fontSize: '2.5rem', marginBottom: '1.2rem', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text-primary)' }}>
+                  {isIngesting ? "Analyzing Book..." : "Start Reading"}
                 </h2>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem', fontSize: '1.1rem', lineHeight: 1.6, opacity: 0.8 }}>
                   {isIngesting
                     ? "Please wait while we process the text to provide context-aware recaps."
-                    : "Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers."}
+                    : "Upload an EPUB or PDF file to start reading. Rekindle will provide context-aware recaps without spilling spoilers."}
                 </p>
                 {isIngesting ? (
-                  <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div className="skeleton" style={{ width: '200px', height: '6px', borderRadius: '4px' }} />
-                    <p style={{ color: 'var(--accent-color)', fontSize: '0.9rem' }}>{ingestStatus || 'Processing book...'}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <div className="streaming-skeleton-line" style={{ width: '240px' }} />
+                    <p style={{ color: 'var(--accent-color)', fontSize: '0.95rem', fontWeight: 600 }}>{ingestStatus || 'Processing book...'}</p>
                   </div>
                 ) : (
-                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px' }}>
+                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '16px 32px', fontSize: '1.1rem', margin: '0 auto' }}>
                     Select EPUB / PDF
                     <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
                   </label>
                 )}
-              </>
+              </div>
             ) : (
               // Populated Library State - Compact Strip
-              <div style={{
-                display: 'flex', width: '100%', maxWidth: '850px', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem',
-                padding: '16px 24px', background: 'var(--surface)', borderRadius: '12px',
-                border: '1px solid var(--surface-hover)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+              <div className="glass-premium" style={{
+                display: 'flex', width: '100%', maxWidth: '1000px', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: '4rem', flexWrap: 'wrap', gap: '2rem',
+                padding: '32px 48px', borderRadius: '40px',
               }}>
-                <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 600 }}>
+                <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <h2 style={{ fontSize: '1.4rem', margin: 0, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                     {isIngesting ? "Adding new book..." : "Rekindle Library"}
                   </h2>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.85rem' }}>
-                    {isIngesting ? "Processing text for context-aware recaps" : "Upload a new EPUB or PDF to start reading"}
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem', fontWeight: 500, opacity: 0.7 }}>
+                    {isIngesting ? "Processing text for context-aware recaps" : "Your personal shelf of intelligent reading"}
                   </p>
                 </div>
                 {isIngesting ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div className="skeleton" style={{ width: '100px', height: '6px', borderRadius: '4px' }} />
-                    <span style={{ color: 'var(--accent-color)', fontSize: '0.85rem', fontWeight: 500 }}>{ingestStatus || 'Processing...'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div className="streaming-skeleton-line" style={{ width: '120px', marginBottom: 0 }} />
+                    <span style={{ color: 'var(--accent-color)', fontSize: '0.9rem', fontWeight: 600 }}>{ingestStatus || 'Processing...'}</span>
                   </div>
                 ) : (
-                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '8px 20px', fontSize: '0.9rem', borderRadius: '8px', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)' }}>
+                  <label className="btn-primary" style={{ cursor: 'pointer', padding: '12px 24px', fontSize: '0.95rem' }}>
                     Add Book
                     <input type="file" accept=".epub, .pdf, application/epub+zip, application/pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
                   </label>
@@ -359,11 +426,10 @@ function App() {
 
             {/* Application Library view */}
             {library && library.length > 0 && (
-              <div style={{ width: '100%', maxWidth: '850px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
-                <div className="library-grid">
+              <div style={{ width: '100%', maxWidth: '900px', textAlign: 'left', animation: 'fadeSlideIn 0.4s ease both' }}>
+                <div className="library-grid" style={{ gap: '24px' }}>
                   {library.map((book, index) => {
                     let titleStr = book.name.replace(/\.[^/.]+$/, ""); // remove extension
-                    // Robust title cleaning for presentation
                     titleStr = titleStr
                       .replace(/_z-lib_org/ig, '')
                       .replace(/epub/ig, '')
@@ -372,71 +438,88 @@ function App() {
                       .trim();
 
                     const initials = titleStr.substring(0, 2).toUpperCase();
-                    const coverStyle = {
-                      width: '60px',
-                      height: '90px',
-                      borderRadius: '8px',
-                      background: getCoverGradient(titleStr),
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'rgba(255,255,255,0.9)',
-                      fontWeight: 'bold',
-                      fontSize: '1.4rem',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                      flexShrink: 0
-                    };
 
                     return (
                       <div
-                        key={book.bookKey}
-                        className="book-card"
+                        key={book.name}
+                        className="book-card glass-premium-card animate-in"
                         onClick={() => handleSelectBook(book)}
                         style={{
-                          animation: 'slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards',
-                          animationDelay: `${index * 0.08}s`
+                          cursor: 'pointer',
+                          transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                          animationDelay: `${index * 0.1}s`,
+                          display: 'flex',
+                          flexDirection: 'column'
                         }}
                       >
                         {/* Top: Cover and Metadata */}
-                        <div style={{ display: 'flex', padding: '16px', gap: '14px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', padding: '16px 8px 16px 16px', gap: '24px', alignItems: 'center' }}>
                           <div style={{
-                            ...coverStyle,
-                            background: book.metadata?.coverBase64 ? `url(${book.metadata.coverBase64}) center/cover no-repeat` : getCoverGradient(titleStr)
+                            width: '70px',
+                            height: '100px',
+                            borderRadius: '12px',
+                            background: book.metadata?.coverBase64 ? `url(${book.metadata.coverBase64}) center/cover no-repeat` : getCoverGradient(titleStr),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'rgba(255,255,255,0.9)',
+                            fontWeight: 'bold',
+                            fontSize: '1.6rem',
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                            flexShrink: 0,
+                            border: '1px solid rgba(255,255,255,0.1)'
                           }}>
                             {!book.metadata?.coverBase64 && initials}
                           </div>
 
-                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.3, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <h4 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.2, color: 'var(--text-primary)', letterSpacing: '-0.02em', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                               {titleStr}
                             </h4>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em', opacity: 0.6 }}>
                               {book.metadata?.type?.toUpperCase()} • {new Date(book.addedAt).toLocaleDateString()}
                             </div>
                           </div>
 
                           <button
-                            onClick={(e) => { e.stopPropagation(); handleDeleteBook(book.bookKey); }}
-                            style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: 'var(--danger-color)', cursor: 'pointer', padding: '4px', opacity: 0.4, transition: 'opacity 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                            onMouseLeave={e => e.currentTarget.style.opacity = 0.4}
-                            title="Remove book from library"
+                            onClick={(e) => { e.stopPropagation(); setBookToDelete(book); }}
+                            style={{
+                              alignSelf: 'center',
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.2)',
+                              color: 'var(--danger-color)',
+                              cursor: 'pointer',
+                              padding: '8px',
+                              borderRadius: '10px',
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                              e.currentTarget.style.transform = 'scale(1.1)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                            title="Remove book"
                           >
                             <X size={16} />
                           </button>
                         </div>
 
                         {/* Bottom: The Hook */}
-                        <div style={{ padding: '16px', paddingTop: '0', flex: 1 }}>
+                        <div style={{ padding: '0 8px 16px 16px', flex: 1 }}>
                           <div style={{
-                            fontSize: '0.88rem',
+                            fontSize: '0.9rem',
                             lineHeight: '1.5',
-                            color: 'var(--accent-color)',
-                            fontWeight: 500,
-                            padding: '12px',
-                            background: 'rgba(0,0,0,0.15)',
-                            borderRadius: '10px',
-                            fontStyle: 'italic',
+                            color: 'var(--text-secondary)',
+                            fontWeight: 450,
+                            padding: '12px 16px',
+                            background: 'rgba(var(--accent-color-rgb, 99, 102, 241), 0.05)',
+                            borderRadius: '12px',
+                            border: '1px solid var(--glass-border)',
+                            position: 'relative',
+                            opacity: 0.9
                           }}>
                             {book.metadata?.miniRecap ? `"${getOneLiner(book.metadata)}"` : getOneLiner(book.metadata)}
                           </div>
@@ -525,6 +608,158 @@ function App() {
       <VersionPrompt />
       {isSettingsOpen && <SettingsModal uploadedFile={file} onClose={() => setIsSettingsOpen(false)} />}
       {isRecapOpen && <RecapOverlay currentChapter={currentProgress} fileType={fileType} bookKey={bookKey} onClose={() => setIsRecapOpen(false)} chatHistoryRef={chatHistoryRef} />}
+
+      {/* Delete Confirmation Modal */}
+      {bookToDelete && (
+        <div
+          className="modal-overlay"
+          onClick={cancelDeleteBook}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            animation: 'fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Atmospheric Background Glows */}
+          <div style={{
+            position: 'absolute',
+            top: '20%',
+            left: '30%',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%)',
+            filter: 'blur(80px)',
+            zIndex: -1,
+            pointerEvents: 'none'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '10%',
+            right: '25%',
+            width: '500px',
+            height: '500px',
+            background: 'radial-gradient(circle, rgba(239, 68, 68, 0.1) 0%, transparent 70%)',
+            filter: 'blur(100px)',
+            zIndex: -1,
+            pointerEvents: 'none'
+          }} />
+
+          <div
+            className="modal-content glass-premium animate-in"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: '440px',
+              width: '90%',
+              textAlign: 'center',
+              padding: '60px 40px',
+              position: 'relative'
+            }}
+          >
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.12)',
+              color: '#ff4d4d',
+              width: '72px',
+              height: '72px',
+              borderRadius: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 28px',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.15)'
+            }}>
+              <AlertTriangle size={36} />
+            </div>
+
+            <h3 style={{
+              margin: '0 0 14px 0',
+              fontSize: '1.75rem',
+              fontWeight: 800,
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.04em',
+              fontFamily: 'Inter, var(--font-heading), sans-serif'
+            }}>
+              Delete Book?
+            </h3>
+
+            <p style={{
+              margin: '0 0 36px 0',
+              fontSize: '1.05rem',
+              color: 'var(--text-secondary)',
+              lineHeight: 1.6,
+              fontWeight: 400
+            }}>
+              Are you sure you want to permanently delete <br />
+              <strong style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.1rem' }}>{bookToDelete.metadata?.title || bookToDelete.name}</strong>?<br />
+              <span style={{ fontSize: '0.9rem', color: 'var(--danger-color)', display: 'block', marginTop: '10px', fontWeight: 500, opacity: 0.8 }}>
+                This will erase all progress, recaps and data.
+              </span>
+            </p>
+
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <button
+                className="btn-secondary"
+                onClick={cancelDeleteBook}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  fontSize: '1.05rem',
+                  borderRadius: '20px',
+                  background: 'var(--surface-color)',
+                  border: '1px solid var(--glass-border)',
+                  color: 'var(--text-primary)',
+                  fontWeight: 600,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = 'var(--surface-hover)';
+                  e.currentTarget.style.borderColor = 'var(--accent-color)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'var(--surface-color)';
+                  e.currentTarget.style.borderColor = 'var(--glass-border)';
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={confirmDeleteBook}
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  background: 'linear-gradient(180deg, #ff4d4d 0%, #d63031 100%)',
+                  boxShadow: '0 12px 32px -8px rgba(214, 48, 49, 0.6)',
+                  color: '#fff',
+                  border: 'none',
+                  fontSize: '1.05rem',
+                  borderRadius: '20px',
+                  fontWeight: 700,
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0 16px 40px -8px rgba(214, 48, 49, 0.7)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 12px 32px -8px rgba(214, 48, 49, 0.6)';
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

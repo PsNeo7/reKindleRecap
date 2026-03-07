@@ -75,11 +75,15 @@ export default function SettingsModal({ onClose }) {
     };
 
     return (
-        <div className="settings-backdrop">
-            <div className="glass-panel settings-modal">
+        <div className="settings-backdrop animate-in" style={{
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(0,0,0,0.4)'
+        }}>
+            <div className="glass-premium settings-modal">
                 <div className="settings-header">
-                    <h2>
-                        <KeyRound size={20} /> AI Configuration
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
+                        <KeyRound size={22} style={{ color: 'var(--accent-color)' }} /> AI Configuration
                     </h2>
                     <button onClick={onClose} className="settings-close-btn"><X size={20} /></button>
                 </div>
