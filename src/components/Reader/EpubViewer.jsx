@@ -5,10 +5,29 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
     const [buffer, setBuffer] = useState(null);
     const [location, setLocation] = useState(initialLocation || null);
     const [chapterLabel, setChapterLabel] = useState('');
+    const [tocExpanded, setTocExpanded] = useState(false);
     const renditionRef = useRef(null);
     const tocRef = useRef([]);
 
-    // Custom styles for ReactReader to ensure it fills the container
+    // Intercept clicks on the ReactReader wrapper to track TOC open/close state.
+    // The TOC button occupies a ~42×42 area at top:10 left:10.
+    // Clicking anywhere else while TOC is open (i.e. clicking the dark overlay) closes it.
+    const handleWrapperClick = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const relX = e.clientX - rect.left;
+        const relY = e.clientY - rect.top;
+        const onTocButton = relX <= 42 && relY <= 42;
+        if (onTocButton) {
+            setTocExpanded(prev => !prev);
+        } else if (tocExpanded) {
+            setTocExpanded(false);
+        }
+    };
+
+    // Custom styles for ReactReader.
+    // tocArea and tocBackground use opacity + transition so they never visually bleed
+    // through the reader iframe during page-turn repaints — opacity:0 makes them truly
+    // invisible (not just layered behind), unlike z-index alone.
     const ownStyles = {
         ...ReactReaderStyle,
         reader: {
@@ -23,11 +42,58 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
         container: {
             ...ReactReaderStyle.container,
             height: '100%',
+            backgroundColor: 'var(--bg-color)',
+        },
+        readerArea: {
+            ...ReactReaderStyle.readerArea,
+            backgroundColor: 'transparent',
+        },
+        tocBackground: {
+            ...ReactReaderStyle.tocBackground,
+            background: 'rgba(0, 0, 0, 0.7)',
+            opacity: tocExpanded ? 1 : 0,
+            pointerEvents: tocExpanded ? 'auto' : 'none',
+            transition: 'opacity 0.25s ease',
+        },
+        tocArea: {
+            ...ReactReaderStyle.tocArea,
+            background: theme === 'dark' ? '#1e293b' : '#ffffff',
+            color: theme === 'dark' ? '#f8fafc' : '#0f172a',
+            opacity: tocExpanded ? 1 : 0,
+            pointerEvents: tocExpanded ? 'auto' : 'none',
+            transition: 'opacity 0.25s ease',
+        },
+        tocAreaButton: {
+            ...ReactReaderStyle.tocAreaButton,
+            color: theme === 'dark' ? '#f8fafc' : '#0f172a',
+            borderBottom: theme === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+        },
+        tocButton: {
+            ...ReactReaderStyle.tocButton,
+            color: theme === 'dark' ? '#f8fafc' : '#0f172a',
+            zIndex: 100,
+        },
+        tocButtonExpanded: {
+            ...ReactReaderStyle.tocButtonExpanded,
+            background: 'transparent',
+        },
+        tocButtonBar: {
+            ...ReactReaderStyle.tocButtonBar,
+            background: theme === 'dark' ? '#f8fafc' : '#0f172a',
+        },
+        tocButtonBarTop: {
+            ...ReactReaderStyle.tocButtonBarTop,
+        },
+        tocButtonBottom: {
+            ...ReactReaderStyle.tocButtonBottom,
+        },
+        arrow: {
+            ...ReactReaderStyle.arrow,
+            color: theme === 'dark' ? '#f8fafc' : '#0f172a',
         }
     };
 
     // Convert local files to an ArrayBuffer.
-    // Passing Blob URLs directly can fail in the epub.js iframe due to sandbox restrictions.
     useEffect(() => {
         if (!file) return;
         setBuffer(null);
@@ -38,12 +104,11 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
             reader.onload = (e) => setBuffer(e.target.result);
             reader.readAsArrayBuffer(file);
         } else {
-            // Already an ArrayBuffer or other raw format
             setBuffer(file);
         }
     }, [file]);
 
-    // Track location changes
+    // Track location changes and resolve chapter label
     const handleLocationChange = (epubcfi) => {
         setLocation(epubcfi);
 
@@ -70,7 +135,7 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
         }
     };
 
-    // Apply themes
+    // Apply themes when theme prop changes
     useEffect(() => {
         if (renditionRef.current) {
             const textColor = theme === 'dark' ? '#f8fafc' : '#0f172a';
@@ -84,8 +149,6 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                     'background': `${bgColor} !important`,
                     'font-size': '1.1rem !important',
                     'line-height': '1.7 !important',
-                    'max-width': '800px !important',
-                    'margin': '0 auto !important',
                     'overflow-wrap': 'break-word !important',
                     'word-wrap': 'break-word !important'
                 },
@@ -104,7 +167,18 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
     }
 
     return (
-        <div className="epub-viewer-wrapper" style={{ position: 'relative', height: '100%', width: '100%', display: 'flex', flexDirection: 'column', backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff', overflow: 'hidden' }}>
+        <div
+            className="epub-viewer-wrapper"
+            style={{
+                position: 'relative',
+                height: '100%',
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff',
+                overflow: 'hidden',
+            }}
+        >
             {chapterLabel && (
                 <div style={{
                     position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 10,
@@ -116,19 +190,23 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                     {chapterLabel}
                 </div>
             )}
-            <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
+
+            {/* onClick intercepts all clicks to track TOC open/close state */}
+            <div
+                style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}
+                onClick={handleWrapperClick}
+            >
                 <ReactReader
                     url={buffer}
                     location={location}
                     locationChanged={handleLocationChange}
-                    styles={ownStyles}
+                    readerStyles={ownStyles}
                     getRendition={(rendition) => {
                         renditionRef.current = rendition;
                         rendition.book.loaded.navigation.then((nav) => {
                             tocRef.current = nav.toc;
                         });
 
-                        // Initial theme application
                         const textColor = theme === 'dark' ? '#f8fafc' : '#0f172a';
                         const bgColor = theme === 'dark' ? '#0f172a' : '#ffffff';
                         rendition.themes.default({
@@ -139,8 +217,6 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                                 'background': `${bgColor} !important`,
                                 'font-size': '1.1rem !important',
                                 'line-height': '1.7 !important',
-                                'max-width': '800px !important',
-                                'margin': '0 auto !important',
                                 'overflow-wrap': 'break-word !important',
                                 'word-wrap': 'break-word !important'
                             },
@@ -149,8 +225,10 @@ export default function EpubViewer({ file, initialLocation, onLocationChange, th
                         });
                     }}
                     tocChanged={(toc) => { tocRef.current = toc; }}
+                    epubOptions={{ spread: "none" }}
                     epubInitOptions={{
-                        sandbox: "allow-scripts allow-same-origin allow-popups"
+                        sandbox: "allow-scripts allow-same-origin allow-popups",
+                        manager: "continuous"
                     }}
                 />
             </div>

@@ -120,6 +120,9 @@ function App() {
       }
     } catch (e) { console.warn("Background cover extraction failed", e); }
 
+    // Update library state so the new book appears immediately while processing
+    setLibrary(await loadAllBooksFromLibrary())
+
     await processBookIngestion(uploadedFile, provider, activeKey, setIngestStatus)
     setIsIngesting(false)
 
@@ -298,9 +301,13 @@ function App() {
             {!(library && library.length > 0) ? (
               // Empty State - Large Hero
               <>
-                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>Upload a Book</h2>
+                <h2 style={{ fontSize: '2rem', marginBottom: '1rem' }}>
+                  {isIngesting ? "Analyzing Book..." : "Upload a Book"}
+                </h2>
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '400px' }}>
-                  Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers.
+                  {isIngesting
+                    ? "Please wait while we process the text to provide context-aware recaps."
+                    : "Upload an EPUB or PDF file to start reading. Rekindle will analyze the text to provide context-aware recaps without spilling spoilers."}
                 </p>
                 {isIngesting ? (
                   <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
@@ -323,8 +330,12 @@ function App() {
                 border: '1px solid var(--surface-hover)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
               }}>
                 <div style={{ textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 600 }}>Rekindle Library</h2>
-                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.85rem' }}>Upload a new EPUB or PDF to start reading</p>
+                  <h2 style={{ fontSize: '1.2rem', margin: 0, fontWeight: 600 }}>
+                    {isIngesting ? "Adding new book..." : "Rekindle Library"}
+                  </h2>
+                  <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.85rem' }}>
+                    {isIngesting ? "Processing text for context-aware recaps" : "Upload a new EPUB or PDF to start reading"}
+                  </p>
                 </div>
                 {isIngesting ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -341,7 +352,7 @@ function App() {
             )}
 
             {/* Application Library view */}
-            {!isIngesting && library && library.length > 0 && (
+            {library && library.length > 0 && (
               <div style={{ width: '100%', maxWidth: '850px', textAlign: 'left', animation: 'fadeSlideIn 0.3s ease both' }}>
                 <div className="library-grid">
                   {library.map((book, index) => {
