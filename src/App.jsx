@@ -481,18 +481,22 @@ function App() {
             )}
           </div>
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div className="reader-header" style={{ position: 'relative' }}>
-              <button onClick={handleCloseBook} className="btn-secondary" style={{ border: 'none', background: 'transparent', padding: '8px', gap: '4px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                <ChevronLeft size={20} /> <span className="hide-mobile">Library</span>
-              </button>
-              <div style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{file.name}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', margin: 0, marginTop: '2px' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+            <div className="reader-header">
+              <div className="reader-header-left">
+                <button onClick={handleCloseBook} className="btn-secondary" style={{ border: 'none', background: 'transparent', padding: '8px', gap: '4px', fontSize: '0.9rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
+                  <ChevronLeft size={20} /> <span className="hide-mobile">Library</span>
+                </button>
+              </div>
+              <div className="reader-header-center">
+                <h3 className="reader-book-title">{file.name}</h3>
+                <p className="reader-chapter-label">
                   {fileType === 'pdf' ? `Page ${currentProgress}` : (chapterLabel || 'Reading EPUB')}
                 </p>
               </div>
-              <div style={{ width: '80px' }}></div> {/* Spacer for symmetry */}
+              <div className="reader-header-right">
+                {/* Reserved for future actions like bookmark or settings */}
+              </div>
             </div>
 
             <div className="reader-container">
