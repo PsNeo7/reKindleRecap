@@ -28,3 +28,9 @@ By adhering to a strict **Amnesia Protocol**, the AI only accesses context up to
 - Lucide React (Icons)
 - IndexedDB (Vector Cache Database)
 - PDF.js / ePub.js
+
+
+https://github.com/user-attachments/assets/58df1693-bce1-4191-b5ce-0d864ff4f600
+
+
+
